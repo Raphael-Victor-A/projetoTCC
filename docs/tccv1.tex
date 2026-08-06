@@ -1,0 +1,886 @@
+\documentclass[10pt, a4paper, twocolumn]{article}
+
+% --- Pacotes ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[top=2cm, bottom=2cm, left=1.75cm, right=1.75cm]{geometry}
+\usepackage{setspace}
+\usepackage{indentfirst}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{abstract}
+\usepackage{amsmath}
+\usepackage{multicol}
+\usepackage{titlesec}
+
+% --- Configurações de Espaçamento de Títulos (Otimização de espaço) ---
+\titleformat{\section}{\normalfont\normalsize\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\small\bfseries}{\thesubsubsection}{1em}{}
+\titlespacing*{\section}{0pt}{1.2ex plus 0.5ex minus .2ex}{0.6ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.0ex plus 0.4ex minus .2ex}{0.5ex plus .1ex}
+\titlespacing*{\subsubsection}{0pt}{0.9ex plus 0.3ex minus .2ex}{0.4ex plus .1ex}
+
+% --- Configurações gerais ---
+\setlength{\parindent}{0.4cm}
+\singlespacing
+\setlength{\columnsep}{0.5cm}
+
+% Configuração para forçar quebra de linha em URLs longas nas referências
+\makeatletter
+\g@addto@macro{\UrlBreaks}{\do\/\do\-\do\.\do\=}
+\makeatother
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black
+}
+
+% Estilização do Abstract Compacto
+\renewenvironment{abstract}{
+  \small
+  \begin{center}
+    \bfseries \abstractname\vspace{-0.6em}
+  \end{center}
+  \list{}{
+    \setlength{\leftmargin}{0cm}
+    \setlength{\rightmargin}{0cm}
+  }%
+  \item\relax
+}
+{\endlist}
+
+% --- Título e autores ---
+\title{
+  \normalsize\textbf{Desenvolvimento e Análise de uma Ferramenta de Inteligência Artificial para Suporte Pedagógico Personalizado}
+}
+
+\author{
+  \small \textbf{Raphael Victor de Araujo Alencar}, \textbf{Vinicius Haas Kuhn} \\[2pt]
+  \small {Orientador: Prof. Me. Gustavo da Silva Andrade} \\[4pt]
+  \small Universidade Católica Dom Bosco, Campo Grande, Brasil
+}
+\date{}
+
+% ================================================================
+\begin{document}
+
+% Cabeçalho em coluna única integrada
+\twocolumn[
+  \begin{center}
+    \maketitle
+    \vspace{-2.2em}
+    \begin{abstract}
+Este trabalho apresenta o desenvolvimento, a especificação arquitetural e o plano de validação experimental de uma ferramenta de Inteligência Artificial (IA) baseada em aprendizagem adaptativa e suporte pedagógico personalizado para o ensino médio. O sistema visa mitigar a defasagem escolar por meio de auxílio mediado (\textit{scaffolding}), reduzindo o descarregamento cognitivo dos estudantes. A infraestrutura é organizada em três camadas independentes --- \textit{frontend} em React.js, \textit{backend} em FastAPI e um Orquestrador de IA acoplado à API do modelo Google Gemini Flash --- e foi materializada em uma implementação de referência funcional, com motor de adaptabilidade por janela móvel de três exercícios, dupla camada anti-vazamento de gabarito no modo socrático, defesa contra injeção de \textit{prompt}, limitação de taxa de chamadas e telemetria por tentativa. São descritas as alterações aplicadas à aplicação em relação à especificação inicial, entre elas a correção do limiar numérico da janela móvel, a retenção do gabarito exclusivamente no servidor e a substituição da garantia rígida de latência por degradação graciosa. Por fim, detalha-se o desenho da validação empírica por experimento controlado (teste A/B) com amostra projetada de 60 estudantes, cuja eficácia do suporte socrático face ao modo diretivo será quantificada pelo Ganho Normatizado de Hake, e discute-se a conclusão esperada do estudo, incluindo os resultados que confirmariam ou refutariam a hipótese central.
+
+    \medskip
+    \noindent\textbf{Palavras-chave:} Inteligência Artificial; Tutoria Inteligente; Aprendizagem Adaptativa; Defasagem Escolar; \textit{Scaffolding} Pedagógico; Modelos de Linguagem.
+    \end{abstract}
+    \vspace{1.2em}
+  \end{center}
+]
+
+% ================================================================
+\section{Introdução}
+
+A pandemia de Covid-19 aprofundou uma defasagem educacional já estrutural no
+Brasil. Segundo o relatório setorial documentado por Barbosa~\cite{cetic2025},
+parcelas significativas de estudantes da educação básica acumularam lacunas de
+aprendizagem que a retomada presencial, por si só, não foi suficiente para
+reverter. Turmas numerosas, carga horária restrita e a heterogeneidade do ponto
+de partida de cada aluno tornam inviável, para o professor humano, oferecer
+acompanhamento verdadeiramente individualizado em larga escala. Nesse contexto,
+cresce a pressão por soluções tecnológicas capazes de complementar o trabalho
+docente sem substituí-lo.
+
+A Inteligência Artificial (IA) tem emergido como uma dessas alternativas.
+Sistemas de tutoria inteligente (\textit{Intelligent Tutoring Systems} --- ITS)
+baseados em aprendizagem adaptativa já demonstram capacidade de mapear lacunas
+específicas de cada estudante e propor trilhas de recuperação personalizadas,
+conforme apontado por Vorobyeva et al.~\cite{roe2025}. Iniciativas como a
+Estratégia Nacional de Escolas Conectadas do Ministério da
+Educação~\cite{mec2023} sinalizam, por parte do poder público, o reconhecimento
+de que a infraestrutura digital e o uso pedagógico da tecnologia são prioridades
+para reduzir desigualdades educacionais. A IA, portanto, já não é uma
+possibilidade futura, é uma realidade em expansão nas salas de aula brasileiras.
+
+Entretanto, a forma como essa tecnologia tem sido incorporada revela um problema
+central: predomina o uso substitutivo, em que o estudante delega à máquina a
+produção da resposta em vez de utilizá-la como andaime para construir o próprio
+raciocínio. Kestin et al.~\cite{kestin2025} identificam esse fenômeno como
+``descarregamento cognitivo'' e demonstram que ele pode ser mitigado quando a IA
+é programada para oferecer pistas e questionamentos socráticos em vez de
+soluções prontas. A distinção entre um modo \textit{diretivo}, em que a
+ferramenta entrega a resposta, e um modo \textit{socrático}, em que ela orienta o
+estudante a chegar à resposta, é, portanto, central para o debate sobre o papel
+pedagógico da IA.
+
+Essa distinção, contudo, não é apenas uma escolha de redação de \textit{prompt}.
+Modelos de linguagem de grande porte são sistemas estocásticos: mesmo instruídos
+a não revelar a resposta, podem fazê-lo por descuido, por reformulação indireta
+ou por indução deliberada do próprio estudante --- um caso particular de injeção
+de \textit{prompt}. Um experimento que compare o modo socrático ao diretivo sem
+mecanismos que garantam a separação entre os dois tratamentos corre o risco de
+medir uma diferença que, na prática, não existiu. Esse ponto, pouco explorado na
+literatura pedagógica, motivou a parte mais substantiva das alterações de
+engenharia descritas neste trabalho.
+
+Diante deste cenário, apresenta-se aqui a modelação técnica, a implementação de
+referência e o plano experimental de uma ferramenta de IA voltada ao suporte
+pedagógico individualizado no ensino médio. A contribuição é dupla: técnica, ao
+especificar e construir uma arquitetura de três camadas com salvaguardas
+explícitas de integridade do tratamento experimental; e pedagógica, ao formular
+um protocolo rigoroso para testar a hipótese de que o auxílio mediado socrático
+gera maior retenção de conhecimento do que o fornecimento direto de respostas.
+
+Este artigo está organizado da seguinte forma: a Seção~\ref{sec:objetivos}
+apresenta os objetivos geral e específicos; a Seção~\ref{sec:correlatos} discute
+os trabalhos correlatos nas dimensões de \textit{scaffolding} pedagógico,
+personalização em larga escala, integridade de sistemas baseados em modelos de
+linguagem e integração ética; a Seção~\ref{sec:metodologia} detalha a arquitetura
+do sistema, o motor de adaptabilidade, o Orquestrador de IA, as alterações
+aplicadas à aplicação e o protocolo experimental; a
+Seção~\ref{sec:resultados} relata os resultados preliminares de validação
+técnica; a Seção~\ref{sec:conclusao} discute a conclusão esperada; e a
+Seção~\ref{sec:cronograma} apresenta o cronograma de execução.
+
+% ================================================================
+\section{Objetivos}
+\label{sec:objetivos}
+
+\subsection{Geral}
+
+Desenvolver e validar experimentalmente uma ferramenta de Inteligência
+Artificial voltada ao suporte pedagógico personalizado, capaz de mitigar a
+defasagem de aprendizagem no ensino médio por meio de auxílio mediado,
+avaliando seu impacto na autonomia de raciocínio dos estudantes.
+
+\subsection{Específicos}
+
+Para atingir o objetivo geral, foram estabelecidos os seguintes objetivos
+específicos:
+
+\begin{itemize}[leftmargin=0.4cm, itemsep=2pt, parsep=0pt]
+  \item Projetar e implementar uma plataforma web de tutoria adaptativa que,
+  a partir do desempenho do estudante em uma janela móvel de 3 exercícios,
+  alterne dinamicamente o nível de dificuldade (básico, intermediário ou
+  avançado) ou acione blocos de reforço conceitual.
+  \item Implementar o módulo de processamento de linguagem natural integrado via
+  API ao modelo Google Gemini Flash, configurado com engenharia de
+  \textit{prompt} e saída estruturada para gerar, imediatamente após o erro,
+  feedback diretivo ou socrático conforme o grupo experimental do estudante.
+  \item Garantir a integridade do tratamento experimental por meio de
+  mecanismos técnicos que impeçam o vazamento do gabarito no modo socrático,
+  incluindo retenção do gabarito no servidor, autorrelato estruturado do modelo
+  e filtro heurístico de pós-processamento.
+  \item Instrumentar a aplicação com telemetria por tentativa (modo, latência,
+  vazamento detectado, uso de \textit{fallback}) e com um painel de
+  acompanhamento docente, permitindo tanto a análise estatística do experimento
+  quanto a supervisão pedagógica humana.
+  \item Comparar estatisticamente os modos de uso da ferramenta (diretivo versus
+  socrático) por meio de experimento controlado (teste A/B), mensurando o ganho
+  de aprendizagem por exames de pré e pós-teste.
+  \item Conduzir análise dos riscos éticos da ferramenta com foco em plágio,
+  desinformação, proteção de dados de menores e equidade de acesso, validando
+  estratégias de mitigação técnica para uso institucionalizado.
+\end{itemize}
+
+% ================================================================
+\section{Trabalhos Correlatos}
+\label{sec:correlatos}
+
+\subsection{IA como Andaime Pedagógico (\textit{Scaffolding})}
+
+Estudos recentes têm investigado a transição da IA de ferramenta de busca
+passiva para ``parceiro de tutoria interativo''. Kestin et
+al.~\cite{kestin2025} demonstram que o uso de modelos de linguagem estruturados
+com técnicas de \textit{scaffolding} (andaime) impede o chamado
+``descarregamento cognitivo'' --- quando o aluno terceiriza o raciocínio para a
+máquina. Em vez de fornecer a solução, a IA é programada para oferecer pistas e
+questionamentos socráticos que guiam o estudante na construção do próprio
+conhecimento.
+
+Nesse sentido, Ocen et al.~\cite{ocen2026} realizaram um estudo de caso em
+ambientes de aprendizagem aberta, identificando que a IA, quando configurada
+como suporte ao aprendizado autodirigido, atua como mediadora que compensa a
+falta de instrutores humanos em tempo integral. A pesquisa destaca que esse
+modelo é particularmente eficaz em contextos de recursos limitados, onde a
+defasagem educacional é mais acentuada. Essas evidências fundamentam diretamente
+a decisão de implementar o \textit{system prompt} socrático como mecanismo
+central do Orquestrador de IA, validando a escolha metodológica de bloquear
+respostas diretas para estimular o esforço cognitivo do estudante.
+
+\subsection{Mitigação da Defasagem e Personalização em Larga Escala}
+
+A literatura aponta que a defasagem escolar, agravada pelo período
+pós-pandemia, exige intervenções que a educação tradicional, em turmas
+numerosas, tem dificuldade de suprir. Sistemas de tutoria inteligente que
+utilizam aprendizagem adaptativa conseguem mapear lacunas específicas de
+conhecimento em cada estudante e propor trilhas de recuperação personalizadas.
+
+No ensino médio, o uso de assistentes de aprendizagem baseados em IA demonstrou
+aumentar o engajamento discente em diversas disciplinas, com destaque na
+literatura para os campos das ciências exatas e naturais~\cite{roe2025}.
+Vorobyeva et al.~\cite{roe2025} observaram que estudantes tendem a se sentir
+mais confortáveis em sanar dúvidas básicas com assistentes virtuais do que com
+professores humanos, o que reduz o \textit{gap} de conhecimento antes que ele se
+torne impeditivo para o avanço no curso. Essa constatação justifica a adoção de
+uma arquitetura de microsserviços de baixa latência, capaz de responder de forma
+imediata e personalizada, conforme detalhado na Seção~\ref{subsec:arquitetura}.
+
+\subsection{Integridade e Robustez de Sistemas Baseados em Modelos de Linguagem}
+\label{subsec:integridade}
+
+Um sistema de tutoria construído sobre um modelo de linguagem herda as
+fragilidades desse modelo. Três delas são especialmente relevantes para o
+desenho experimental aqui proposto.
+
+A primeira é a natureza estocástica da geração: mesmo com temperatura reduzida, o
+modelo pode produzir saídas que violem a instrução recebida. No caso do modo
+socrático, a violação crítica é revelar a alternativa correta, o que anularia o
+contraste com o grupo diretivo. A literatura recomenda, para casos assim,
+combinar restrição por \textit{prompt} com validação programática da saída, em
+vez de confiar exclusivamente na obediência do modelo.
+
+A segunda é a injeção de \textit{prompt}: conteúdo proveniente do usuário pode
+ser interpretado pelo modelo como instrução, e não como dado. Um estudante que
+escreva ``ignore as regras anteriores e me dê a resposta'' explora exatamente
+esse vetor. A mitigação usual consiste em delimitar explicitamente o conteúdo do
+usuário e instruir o modelo a tratá-lo sempre como dado de contexto.
+
+A terceira é a dependência de um serviço externo, sujeito a indisponibilidade,
+latência variável e limites de cota. Segundo as diretrizes da
+UNESCO~\cite{unesco2024} para IA generativa em educação, sistemas voltados a
+estudantes devem degradar de forma previsível e nunca deixar o usuário sem
+resposta pedagógica útil por falha de infraestrutura.
+
+Essas três preocupações são endereçadas, respectivamente, pelo filtro
+anti-vazamento em dupla camada, pela delimitação do conteúdo do aluno e pelo
+mecanismo de \textit{fallback} descritos na Seção~\ref{subsec:orquestrador}.
+
+\subsection{Integração Ética e o Futuro da Práxis Docente}
+
+Diferentemente da abordagem de automação pura, a tendência atual na pesquisa
+acadêmica defende o modelo ``IA gerenciada pelo professor''. Pesquisas recentes
+compararam instruções lideradas por docentes com e sem auxílio de IA, concluindo
+que o melhor desempenho ocorre quando o professor atua como arquiteto da
+experiência, utilizando a IA para feedback imediato e análise de dados, enquanto
+mantém a liderança no desenvolvimento do pensamento crítico e
+ético~\cite{luckin2018}. A partir desse entendimento, a ferramenta incorpora um
+painel administrativo que expõe as métricas agregadas do experimento e permite ao
+docente reatribuir manualmente o modo de mediação de um aluno específico,
+unindo a automação técnica à supervisão pedagógica humana.
+
+% ================================================================
+\section{Materiais e Métodos}
+\label{sec:metodologia}
+
+Esta seção descreve o público-alvo, a arquitetura implementada, o motor de
+adaptabilidade, o Orquestrador de IA, as alterações aplicadas à aplicação em
+relação à especificação inicial e o protocolo experimental desenhado para a
+validação em campo.
+
+\subsection{Delimitação do Público-Alvo e Critérios de Inclusão}
+\label{subsec:publico_alvo}
+
+A validação prática e a coleta de dados empíricos serão realizadas junto a
+estudantes ingressantes do Ensino Médio, com foco em módulos de nivelamento.
+Para a composição da amostra, serão adotados os seguintes critérios de inclusão:
+
+\begin{itemize}[leftmargin=0.4cm, itemsep=2pt, parsep=0pt]
+    \item Estar regularmente matriculado no 1º ano do Ensino Médio da
+    instituição de ensino parceira;
+    \item Obter autorização formal dos pais ou responsáveis legais mediante
+    assinatura do Termo de Consentimento Livre e Esclarecido (TCLE);
+    \item Manifestar concordância voluntária por meio da assinatura do Termo de
+    Assentimento Livre e Esclarecido (TALE) para menores;
+    \item Realizar todas as etapas obrigatórias do protocolo, que incluem o teste
+    de diagnóstico inicial (pré-teste) e a avaliação somativa final (pós-teste).
+\end{itemize}
+
+Cabe registrar uma delimitação de escopo: embora a proposta original previsse
+módulos de Matemática e de Língua Portuguesa, o banco de questões efetivamente
+implementado cobre até o momento apenas conteúdos de Matemática, distribuídos
+entre aritmética, frações, porcentagem, equações de 1º e 2º graus, sistemas
+lineares, função afim, função exponencial e derivadas. O módulo de Língua
+Portuguesa permanece como trabalho futuro, e a análise estatística será
+conduzida sobre o domínio efetivamente coberto.
+
+\subsection{Arquitetura do Sistema}
+\label{subsec:arquitetura}
+
+A ferramenta está estruturada em três camadas independentes, projetadas para
+isolar responsabilidades e permitir que falhas na dependência externa não
+comprometam o restante do fluxo pedagógico:
+
+\begin{enumerate}[leftmargin=0.4cm, itemsep=3pt]
+    \item \textbf{Camada Cliente (\textit{Frontend}):} interface reativa
+    desenvolvida em React.js com TypeScript, organizada como \textit{Single Page
+    Application} (SPA), com as telas de autenticação, diagnóstico, exercício,
+    painel do aluno e painel administrativo. A comunicação com o servidor ocorre
+    por HTTP com token JWT.
+
+    \item \textbf{Núcleo de Negócio (\textit{Backend}):} API assíncrona
+    construída em Python com o \textit{framework} FastAPI, responsável pelas
+    regras de adaptabilidade, controle de sessão via JWT, persistência
+    relacional através de SQLAlchemy e validação das respostas. Toda a
+    verificação de acerto ocorre no servidor, contra o gabarito armazenado no
+    banco.
+
+    \item \textbf{Orquestrador de IA:} módulo isolado que concentra as chamadas à
+    API do Google Gemini Flash, a montagem dos \textit{system prompts}, a
+    validação da saída e a política de \textit{fallback}. Nenhuma outra parte da
+    aplicação conversa diretamente com o modelo.
+\end{enumerate}
+
+A Tabela~\ref{tab:stack} resume a pilha tecnológica e os parâmetros de
+configuração adotados.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Pilha tecnológica e parâmetros de configuração}
+\label{tab:stack}
+\vspace{0.13cm}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{ll}
+\toprule
+\textbf{Componente} & \textbf{Tecnologia / valor} \\ \midrule
+Interface & React.js + TypeScript (SPA, Vite) \\
+API & FastAPI (Python), SQLAlchemy \\
+Persistência & SQLite (desenvolvimento) / PostgreSQL \\
+Autenticação & JWT (HS256), expiração de 120 min \\
+Hash de senha & bcrypt com \textit{salt} (\textit{passlib}) \\
+Modelo de linguagem & Google Gemini Flash \\
+Temperatura & $T = 0{,}1$ \\
+Saída do modelo & JSON validado por esquema \\
+Limite de chamadas & 20 por usuário por minuto \\
+Janela de adaptação & 3 exercícios, sem sobreposição \\
+Níveis & básico, intermediário, avançado \\
+Banco de questões & 15 itens (3 diagnósticos, 4 de reforço) \\ \bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{Motor de Adaptabilidade}
+\label{subsec:adaptabilidade}
+
+A adaptação da dificuldade é regida por uma janela móvel de $W = 3$ exercícios,
+avaliada apenas quando o bloco fecha, sem sobreposição de margens. Seja $c$ o
+número de acertos dentro da janela corrente e $L = \{$básico, intermediário,
+avançado$\}$ a sequência ordenada de níveis, a transição de estado obedece à
+regra da Equação~\ref{eq:janela}:
+
+\begin{equation}
+\text{ação} =
+\begin{cases}
+\text{promover nível,} & c = 3 \quad (100\%) \\
+\text{manter nível,}   & c = 2 \quad (66\%) \\
+\text{acionar reforço,} & c \leq 1 \quad (\leq 33\%)
+\end{cases}
+\label{eq:janela}
+\end{equation}
+
+Ao fim de cada avaliação, os contadores da janela são zerados. Quando o estado de
+reforço está ativo, o seletor de questões prioriza itens marcados como
+remediais no nível corrente do aluno, retornando ao fluxo regular no bloco
+seguinte. A Tabela~\ref{tab:janela} sintetiza a regra e a compara com a
+formulação da especificação inicial, cuja correção é discutida na
+Seção~\ref{subsec:alteracoes}.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Regra da janela móvel de 3 exercícios}
+\label{tab:janela}
+\vspace{0.13cm}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lll}
+\toprule
+\textbf{Acertos} & \textbf{Aproveitamento} & \textbf{Ação do sistema} \\ \midrule
+3 de 3 & 100\% & Promove ao próximo nível \\
+2 de 3 & 66\%  & Mantém nível (banda de transição) \\
+1 de 3 & 33\%  & Aciona bloco de reforço conceitual \\
+0 de 3 & 0\%   & Aciona bloco de reforço conceitual \\ \bottomrule
+\end{tabular}%
+}
+\end{table}
+
+O nível inicial é atribuído por um teste de nivelamento de 3 problemas básicos.
+O mapeamento é deliberadamente conservador: o aluno só é alocado diretamente no
+nível intermediário com 100\% de acerto; qualquer erro o mantém no nível básico.
+A pequena dimensão desse teste ($n = 3$) é uma limitação metodológica
+reconhecida --- é uma amostra fraca para estimar proficiência --- mitigada pelo
+fato de que a janela móvel reavalia o aluno continuamente a cada três
+exercícios, de modo que uma alocação inicial imprecisa se corrige em poucos
+blocos.
+
+\subsection{Orquestrador de IA e Salvaguardas}
+\label{subsec:orquestrador}
+
+O Orquestrador é o componente responsável por transformar um erro do aluno em
+feedback pedagógico. Ele opera em dois modos, selecionados pelo grupo
+experimental ao qual o estudante foi sorteado:
+
+\begin{itemize}[leftmargin=0.4cm, itemsep=3pt]
+    \item \textbf{Modo Diretivo (grupo controle):} o \textit{system prompt}
+    instrui o modelo a explicar a resolução completa e correta do problema,
+    passo a passo, incluindo a resposta final.
+    \item \textbf{Modo Socrático (grupo experimental):} o \textit{system prompt}
+    proíbe explicitamente revelar a alternativa correta, mesmo de forma parcial
+    ou indireta. O modelo deve identificar o provável erro de raciocínio por trás
+    da alternativa escolhida e devolver de uma a duas perguntas orientadoras.
+\end{itemize}
+
+Sobre esses dois modos operam quatro salvaguardas encadeadas, motivadas pelas
+fragilidades discutidas na Seção~\ref{subsec:integridade}:
+
+\begin{description}[style=nextline, leftmargin=0cm, itemsep=5pt]
+    \item[\textbf{1. Retenção do gabarito no servidor}]
+    O identificador da alternativa correta nunca é serializado para o cliente
+    antes da submissão. Após a submissão, ele é devolvido apenas aos alunos do
+    grupo diretivo; no grupo socrático, o campo permanece nulo. Sem essa medida,
+    o vazamento ocorreria na própria resposta HTTP, tornando irrelevante
+    qualquer cuidado com o texto gerado pelo modelo.
+
+    \item[\textbf{2. Saída estruturada com autorrelato}]
+    A chamada ao modelo é configurada com esquema de resposta em JSON contendo
+    dois campos: o conteúdo do feedback e um booleano em que o próprio modelo
+    declara se acabou revelando a alternativa correta. Isso converte uma
+    instrução em linguagem natural em um sinal verificável programaticamente.
+
+    \item[\textbf{3. Filtro heurístico de pós-processamento}]
+    Independentemente do autorrelato, o texto gerado é normalizado (remoção de
+    acentuação, caixa baixa e colapso de pontuação) e comparado ao texto do
+    gabarito, além de ser inspecionado por expressão regular à procura de
+    menções do tipo ``alternativa X'' ou ``letra X'' quando $X$ é a resposta
+    correta. Trata-se de defesa em profundidade: o autorrelato falha quando o
+    modelo não percebe o próprio vazamento; a heurística falha diante de
+    paráfrases; a probabilidade de ambos falharem simultaneamente é
+    substancialmente menor.
+
+    \item[\textbf{4. \textit{Fallback} pedagógico}]
+    Se qualquer uma das duas camadas anteriores acusar vazamento, a saída do
+    modelo é descartada e substituída por um andaime genérico pré-redigido, que
+    devolve ao aluno perguntas de reexame do próprio raciocínio. O mesmo
+    mecanismo é acionado quando a chamada à API falha ou excede o tempo
+    tolerável. Em ambos os casos, o evento é registrado na telemetria.
+\end{description}
+
+Adicionalmente, o conteúdo proveniente do aluno é encapsulado entre delimitadores
+explícitos e rotulado, no próprio \textit{prompt}, como dado de contexto e nunca
+como instrução --- incluindo a instrução expressa de ignorar qualquer comando
+nele contido, mesmo que o remetente alegue ser professor ou administrador. Por
+fim, um limitador de taxa restringe as chamadas ao modelo a 20 por usuário por
+minuto, protegendo o custo da API e contendo tentativas de exaustão do serviço.
+
+\subsection{Fluxo Operacional da Plataforma}
+\label{subsec:fluxo}
+
+O funcionamento do sistema ocorre em seis fases sequenciais:
+
+\begin{description}[style=nextline, leftmargin=0cm, itemsep=5pt]
+    \item[\textbf{Passo 1: Cadastro, sorteio e diagnóstico}]
+    No cadastro, o estudante é sorteado de forma cega para um dos dois grupos
+    experimentais, em proporção 1:1. Em seguida responde ao teste de nivelamento
+    de 3 problemas básicos, do qual resulta sua assinatura inicial de
+    proficiência.
+
+    \item[\textbf{Passo 2: Distribuição adaptativa}]
+    O motor de adaptabilidade consulta o estado atual do aluno --- nível e
+    indicador de reforço --- e seleciona a próxima questão correspondente.
+
+    \item[\textbf{Passo 3: Submissão e validação}]
+    O aluno submete a alternativa escolhida. O servidor compara a submissão com
+    o gabarito armazenado no banco e registra a tentativa.
+
+    \item[\textbf{Passo 4: Avaliação da janela móvel}]
+    A cada bloco fechado de 3 exercícios, aplica-se a regra da
+    Equação~\ref{eq:janela}, promovendo o aluno, mantendo-o no nível ou
+    acionando reforço conceitual.
+
+    \item[\textbf{Passo 5: Geração de feedback}]
+    Havendo erro, o Orquestrador de IA é acionado no modo correspondente ao grupo
+    do aluno, com todas as salvaguardas da Seção~\ref{subsec:orquestrador}
+    ativas.
+
+    \item[\textbf{Passo 6: Persistência de telemetria}]
+    Cada tentativa é registrada com nível vigente, alternativa escolhida e
+    resultado; cada chamada ao modelo gera um registro adicional com modo,
+    latência medida, ocorrência de vazamento detectado, uso de \textit{fallback}
+    e um trecho da saída bruta para auditoria posterior.
+\end{description}
+
+\subsection{Alterações Realizadas na Aplicação}
+\label{subsec:alteracoes}
+
+A passagem da especificação para a implementação funcional expôs
+inconsistências e lacunas que exigiram alterações de projeto. Esta seção as
+documenta, por transparência metodológica e porque várias delas afetam
+diretamente a validade do experimento. A Tabela~\ref{tab:alteracoes} sintetiza
+as mudanças; o texto a seguir detalha as de maior impacto.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Alterações aplicadas em relação à especificação inicial}
+\label{tab:alteracoes}
+\vspace{0.13cm}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{ll}
+\toprule
+\textbf{Ponto da especificação} & \textbf{Alteração aplicada} \\ \midrule
+Limiar ``$\leq$66\% = 2 erros em 3'' & Regra de 3 faixas (100 / 66 / $\leq$33\%) \\
+Transição só ``básico $\rightarrow$ interm.'' & Ordem genérica de níveis, promoção em cadeia \\
+Gabarito no cliente & Nunca serializado antes da submissão \\
+Filtro anti-vazamento vago & Dupla camada: autorrelato + heurística \\
+Injeção de \textit{prompt} não tratada & Conteúdo do aluno delimitado como dado \\
+Sem telemetria & Registro por tentativa e por chamada ao modelo \\
+Sem controle de custo & Limite de 20 chamadas/usuário/minuto \\
+``Latência garantida $<$ 3 s'' & Degradação graciosa com \textit{fallback} \\
+Anonimização por SHA-256 & bcrypt com \textit{salt} para senhas \\
+Modelo Gemini 1.5 Flash & Gemini Flash em versão corrente, configurável \\
+Professor sem controle & Reatribuição manual de grupo pelo painel \\ \bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsubsection{Correção do limiar da janela móvel}
+
+A especificação inicial definia o gatilho de reforço como ``desempenho igual ou
+inferior a 66\% (2 erros em 3 questões)''. A equivalência está incorreta: 2 erros
+em 3 correspondem a 33\% de aproveitamento, não a 66\%; 66\% é o resultado de 2
+\textit{acertos} em 3. Implementar a regra literalmente faria com que alunos com
+desempenho razoável fossem enviados a reforço conceitual, distorcendo a trilha de
+aprendizagem de ambos os grupos. A formulação foi substituída pela regra de três
+faixas da Equação~\ref{eq:janela}, que além de corrigir o cálculo resolve o caso
+intermediário --- 2 acertos em 3 --- que a redação original deixava indefinido.
+
+\subsubsection{Generalização das transições de nível}
+
+A especificação descrevia apenas a transição ``básico $\rightarrow$
+intermediário'', sem definir o comportamento nos demais níveis. A implementação
+adota uma sequência ordenada de níveis percorrida por índice, de modo que a
+promoção funcione de forma idêntica em toda a escala e sature no nível avançado.
+
+\subsubsection{Retenção do gabarito e integridade do experimento}
+
+A especificação não tratava do momento em que o gabarito chega ao cliente. Como
+discutido na Seção~\ref{subsec:orquestrador}, entregá-lo junto com o enunciado
+--- prática comum em aplicações que validam respostas no navegador ---
+invalidaria o tratamento socrático por completo. A validação foi integralmente
+deslocada para o servidor e o gabarito passou a ser devolvido apenas ao grupo
+diretivo, após a submissão.
+
+\subsubsection{Substituição da garantia de latência}
+
+A especificação afirmava que o sistema garantiria resposta em menos de 2 a 3
+segundos. Trata-se de uma promessa que nenhuma aplicação pode fazer sobre uma
+dependência externa de terceiros. A garantia rígida foi substituída por um
+requisito de degradação graciosa: a chamada ao modelo é isolada e, em caso de
+falha ou lentidão, o aluno recebe um andaime pedagógico genérico em vez de uma
+tela travada. A latência real de cada chamada passou a ser medida e registrada,
+convertendo-se de promessa em variável observável do experimento.
+
+\subsubsection{Correção da estratégia criptográfica}
+
+A especificação previa ``anonimização das credenciais via criptografia
+SHA-256''. SHA-256 é uma função de resumo de propósito geral e rápida, imprópria
+para armazenamento de senhas justamente por sua velocidade. A implementação
+utiliza bcrypt com \textit{salt}, algoritmo de derivação deliberadamente custoso,
+que é a prática recomendada para essa finalidade. A pseudonimização dos registros
+de interação para fins de análise permanece conforme previsto.
+
+\subsubsection{Instrumentação e supervisão docente}
+
+Foram acrescentados dois elementos ausentes da especificação. O primeiro é a
+telemetria por tentativa, sem a qual não haveria como calcular a taxa de
+vazamento nem a latência por grupo. O segundo é o painel administrativo, que
+expõe as métricas agregadas por grupo e permite ao docente reatribuir
+manualmente o modo de mediação de um aluno --- concretizando o modelo de ``IA
+gerenciada pelo professor'' discutido na revisão da literatura.
+
+\subsection{Protocolo Experimental}
+\label{subsec:experimento}
+
+\subsubsection{Amostra, randomização e aspectos éticos}
+
+O experimento será conduzido com amostra intencional de $N = 60$ estudantes
+regularmente matriculados no 1º ano do Ensino Médio. No cadastro, cada usuário é
+alocado de forma cega e automatizada, em proporção 1:1, por rotina de
+randomização computacional:
+
+\begin{itemize}[leftmargin=0.4cm, itemsep=2pt]
+    \item \textbf{Grupo A (controle --- modo diretivo):} $n_A \approx 30$
+    estudantes recebem resoluções diretas e imediatas geradas pela IA após o
+    erro.
+    \item \textbf{Grupo B (experimental --- modo socrático):} $n_B \approx 30$
+    estudantes recebem pistas conceituais e questionamentos reflexivos.
+\end{itemize}
+
+Como o sorteio é independente por cadastro, os tamanhos finais dos grupos podem
+divergir levemente de 30; o painel administrativo permite ao pesquisador
+reequilibrar a alocação, se necessário, antes do início da coleta.
+
+Em cumprimento à Lei Geral de Proteção de Dados (LGPD) no tratamento de dados de
+menores, o sistema adota o princípio da minimização, coletando apenas dados
+estritamente necessários ao escopo pedagógico: respostas, tempos de interação e
+metadados das chamadas ao modelo. As senhas são armazenadas sob bcrypt com
+\textit{salt} e os registros operacionais passam por pseudonimização na base. A
+política de retenção é de 6 meses --- tempo de execução e defesa do projeto ---
+seguida de descarte definitivo. O acesso à base bruta é restrito aos
+pesquisadores responsáveis e protegido por perfil administrativo distinto do
+perfil de aluno. A execução está condicionada à coleta prévia do TCLE junto aos
+responsáveis e do TALE junto aos alunos.
+
+\subsubsection{Métricas coletadas}
+
+A Tabela~\ref{tab:metricas} lista as variáveis registradas e sua função na
+análise.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Variáveis coletadas e finalidade}
+\label{tab:metricas}
+\vspace{0.13cm}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{ll}
+\toprule
+\textbf{Variável} & \textbf{Finalidade} \\ \midrule
+Ganho de Hake ($g$) & Variável dependente principal \\
+Acurácia por grupo & Desempenho durante a intervenção \\
+Distribuição de níveis & Progressão na trilha adaptativa \\
+Latência do modelo (ms) & Viabilidade operacional \\
+Taxa de vazamento detectado & Integridade do tratamento socrático \\
+Uso de \textit{fallback} & Robustez frente a falhas \\
+Tentativas até acerto & Indicador de esforço cognitivo \\ \bottomrule
+\end{tabular}%
+}
+\end{table}
+
+A taxa de vazamento detectado merece destaque: ela não é apenas um indicador de
+qualidade de software, mas uma \textit{medida de validade interna do
+experimento}. Uma taxa elevada indicaria que parte dos alunos do grupo socrático
+recebeu, na prática, tratamento diretivo, e exigiria análise de sensibilidade
+excluindo essas interações.
+
+\subsubsection{Formulação matemática do ganho de aprendizagem}
+
+Para testar a hipótese de mitigação do descarregamento cognitivo, aplicar-se-á a
+métrica de Ganho Normatizado de Hake ($g$), calculada individualmente a partir do
+desempenho em pré-teste (diagnóstico) e pós-teste (somativo, sem auxílio da IA),
+conforme a Equação~\ref{eq:ganho_hake}:
+
+\begin{equation}
+    g = \frac{\text{\% Pós} - \text{\% Pré}}{100\% - \text{\% Pré}}
+    \label{eq:ganho_hake}
+\end{equation}
+
+Onde $\text{\% Pré}$ corresponde ao percentual de acertos na avaliação de base e
+$\text{\% Pós}$ ao aproveitamento no teste de retenção final. Após verificação de
+normalidade pelo teste de Shapiro-Wilk, os valores médios de $g$ dos dois grupos
+serão comparados pelo teste $t$ de Student para amostras independentes, com nível
+de significância bicaudal $\alpha = 0{,}05$. Caso a normalidade seja rejeitada,
+adotar-se-á o teste não paramétrico de Mann-Whitney como alternativa. Reporta-se
+também o tamanho de efeito ($d$ de Cohen), dado que, com $N = 60$, um efeito
+pequeno pode não atingir significância estatística sem que isso implique
+ausência de efeito real.
+
+% ================================================================
+\section{Resultados Preliminares}
+\label{sec:resultados}
+
+Até o momento, os resultados obtidos são de natureza técnica: nenhuma coleta com
+estudantes foi realizada, e portanto nenhum dado pedagógico é reportado aqui.
+
+A implementação de referência das três camadas está funcional. O fluxo completo
+--- cadastro com sorteio de grupo, teste de nivelamento, ciclo de exercícios,
+promoção de nível, acionamento de reforço e geração de feedback nos dois modos
+--- foi exercitado ponta a ponta contra o servidor em execução. A compilação do
+\textit{frontend} (verificação de tipos e empacotamento de produção) conclui sem
+erros.
+
+Três comportamentos das salvaguardas foram verificados manualmente. Primeiro, a
+ausência do gabarito nas respostas HTTP anteriores à submissão, confirmando o
+isolamento descrito na Seção~\ref{subsec:orquestrador}. Segundo, a degradação
+graciosa: sem chave de API configurada, o sistema não interrompe o fluxo, entrega
+o andaime genérico e registra o evento como uso de \textit{fallback}. Terceiro, a
+substituição da saída do modelo quando o filtro heurístico acusa menção direta à
+alternativa correta.
+
+O banco de questões de exemplo contém 15 itens, sendo 3 de diagnóstico e 4 de
+reforço conceitual, distribuídos pelos três níveis. Esse volume é suficiente para
+validar o mecanismo, mas insuficiente para uma coleta real: com poucos itens por
+nível, alunos que permaneçam muitos blocos no mesmo nível reencontrarão questões
+já respondidas. A ampliação do banco é pré-requisito para o experimento em campo.
+
+Duas limitações técnicas permanecem em aberto e estão registradas por
+transparência. O limitador de taxa mantém estado em memória do processo, o que
+basta para uma instância única, mas exigiria um contador compartilhado em uma
+implantação distribuída. E não há ainda cobertura de testes automatizados: a
+validação foi manual, e a inclusão de testes sobre o motor de adaptabilidade e
+sobre o filtro anti-vazamento é considerada requisito antes de qualquer coleta
+de dados com estudantes reais.
+
+% ================================================================
+\section{Conclusão Esperada}
+\label{sec:conclusao}
+
+A hipótese central deste trabalho é que o auxílio mediado socrático produz maior
+retenção de conhecimento do que o fornecimento direto de respostas, ainda que ao
+custo de maior esforço e maior tempo de resolução durante a intervenção. Espera-se,
+portanto, o seguinte conjunto de resultados.
+
+\textbf{H1 --- Ganho de aprendizagem.} Espera-se que o ganho normatizado médio do
+grupo socrático supere o do grupo diretivo, com diferença estatisticamente
+significativa a $\alpha = 0{,}05$. A magnitude esperada é modesta: dada a duração
+limitada da intervenção e o tamanho amostral, um tamanho de efeito na faixa
+pequena a moderada já seria consistente com a literatura de
+\textit{scaffolding}~\cite{kestin2025,ocen2026}.
+
+\textbf{H2 --- Desempenho durante a intervenção.} Espera-se que o grupo diretivo
+apresente acurácia igual ou superior durante a fase de exercícios, e menor número
+de tentativas até o acerto. Esse é o resultado esperado e não contradiz H1: é
+precisamente a manifestação do descarregamento cognitivo, em que o desempenho
+imediato melhora sem correspondência na retenção posterior. A divergência entre
+desempenho durante a intervenção e desempenho no pós-teste, se confirmada, é o
+achado mais informativo do estudo.
+
+\textbf{H3 --- Viabilidade operacional.} Espera-se que a latência mediana das
+chamadas ao modelo permaneça em faixa compatível com uso em sala de aula e que a
+taxa de vazamento detectado no modo socrático se mantenha baixa. Uma taxa de
+vazamento elevada não invalidaria apenas o produto, mas o próprio experimento, e
+por isso é tratada como métrica de validade interna.
+
+Espera-se ainda que a contribuição de engenharia se sustente
+independentemente do resultado estatístico: o conjunto de salvaguardas descrito
+--- retenção do gabarito no servidor, autorrelato estruturado, filtro heurístico
+e \textit{fallback} pedagógico --- constitui um padrão reaplicável a qualquer
+estudo que pretenda contrastar modos de mediação de IA em contexto educacional,
+onde a separação entre os tratamentos não pode ser presumida a partir do
+\textit{prompt}.
+
+Quanto aos resultados que refutariam a hipótese, três cenários são
+considerados. Ausência de diferença significativa entre os grupos indicaria que,
+nesta duração e neste domínio, a forma de mediação não é determinante --- o que
+seria um achado relevante contra o entusiasmo corrente com \textit{prompts}
+socráticos. Ganho superior do grupo diretivo sugeriria que, para alunos em
+defasagem acentuada, a exposição direta ao raciocínio correto é mais eficaz que a
+mediação, hipótese compatível com a noção de sobrecarga cognitiva em estudantes
+sem repertório prévio suficiente. E uma taxa alta de vazamento tornaria o
+contraste inconclusivo, exigindo reanálise restrita às interações íntegras.
+
+As limitações antecipadas são a amostra reduzida e de conveniência, a restrição
+a um único domínio de conteúdo, a curta duração da intervenção --- que não
+permite avaliar retenção de longo prazo --- e a impossibilidade de cegamento dos
+participantes quanto ao tipo de feedback recebido, ainda que desconheçam a
+existência do outro grupo. Como desdobramentos, projetam-se a ampliação do banco
+de questões, a inclusão do módulo de Língua Portuguesa, a adição de pós-teste
+tardio para medir retenção e a evolução do painel docente para acompanhamento
+individual em tempo real.
+
+% ================================================================
+\section{Cronograma Geral de Execução}
+\label{sec:cronograma}
+
+O ciclo de atividades foi distribuído ao longo do primeiro semestre de 2026,
+conforme a Tabela~\ref{tab:cronograma}. O levantamento bibliográfico e a
+engenharia de requisitos ocorrem em fevereiro e março, em paralelo à ampliação do
+banco de questões e à inclusão de testes automatizados sobre o motor de
+adaptabilidade e o filtro anti-vazamento. A coleta em campo e o tratamento
+estatístico dos dados concentram-se em abril e maio, junto à escrita final. A
+defesa perante a banca examinadora está prevista para junho.
+
+\begin{table}[H]
+\centering
+\caption{Cronograma de execução do projeto (2026)}
+\label{tab:cronograma}
+\vspace{0.13cm}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Atividade} & \textbf{Fev} & \textbf{Mar} & \textbf{Abr} & \textbf{Mai} & \textbf{Jun} \\ \midrule
+1. Levantamento e requisitos      & X & X &   &   &   \\
+2. Ampliação do banco de questões & X & X &   &   &   \\
+3. Testes automatizados           &   & X &   &   &   \\
+4. Coleta em campo (TCLE/TALE)    &   &   & X &   &   \\
+5. Tratamento estatístico         &   &   & X & X &   \\
+6. Escrita final                  &   &   &   & X &   \\
+7. Defesa perante a banca         &   &   &   &   & X \\ \bottomrule
+\end{tabular}%
+}
+\end{table}
+
+% ================================================================
+\begin{thebibliography}{9}
+\small
+
+\bibitem{ocen2026}
+OCEN, P. et al.
+\textbf{Artificial intelligence as a \textit{scaffolding} tool for self-directed learning}.
+\textit{Frontiers in Education}, 2026.
+Disponível em: \url{https://www.frontiersin.org/journals/education/articles/10.3389/feduc.2026.1793940/full}.
+Acesso em: maio 2026.
+
+\bibitem{kestin2025}
+KESTIN, G. et al.
+\textbf{Scaffolding Generative AI as a Tutor: A Quasi-Experimental Study}.
+\textit{MDPI Education}, 2025.
+Disponível em: \url{https://www.mdpi.com/2227-7102/16/4/651}.
+Acesso em: maio 2026.
+
+\bibitem{roe2025}
+VOROBYEVA, Klarisa I. et al.
+\textbf{Personalized learning through AI: Pedagogical approaches and critical insights}.
+\textit{Contemporary Educational Technology}, 2025.
+Disponível em: \url{https://www.cedtech.net/article/personalized-learning-through-ai-pedagogical-approaches-and-critical-insights-16108}.
+Acesso em: maio 2026.
+
+\bibitem{kim2025}
+KIM, J. et al.
+\textbf{Students--generative AI interaction patterns and its impact on academic writing}.
+\textit{Journal of Computing in Higher Education}, 2025.
+DOI: \url{https://doi.org/10.1007/s12528-025-09444-6}.
+
+\bibitem{pmc2026}
+PMC.
+\textbf{Evaluating AI-powered learning assistants in engineering higher education}.
+\textit{PubMed Central}, 2026.
+Disponível em: \url{https://pmc.ncbi.nlm.nih.gov/articles/PMC12932848/}.
+Acesso em: maio 2026.
+
+\bibitem{cetic2025}
+BARBOSA, Alexandre F.
+\textbf{Estudos Setoriais -- Inteligência Artificial na Educação}. 2025.
+Disponível em: \url{https://cetic.br/media/docs/publicacoes/7/pt/20251124074142/estudos_setoriais-ia_na_educacao.pdf}.
+Acesso em: maio 2026.
+
+\bibitem{mec2023}
+BRASIL. Ministério da Educação (MEC).
+\textbf{Estratégia Nacional de Escolas Conectadas (Enec)}. 2023.
+Disponível em: \url{https://www.gov.br/mec/pt-br/escolas-conectadas}.
+Acesso em: maio 2026.
+
+\bibitem{luckin2018}
+LUCKIN, R.
+\textbf{Machine Learning and Human Intelligence}.
+London: UCL Press, 2018.
+Disponível em: \url{https://discovery.ucl.ac.uk/id/eprint/10051189/}.
+Acesso em: maio 2026.
+
+\bibitem{unesco2024}
+UNESCO.
+\textbf{Guidance for Generative AI in Education and Research}.
+Paris: UNESCO Publishing, 2024.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,855 @@
+<title>Redesign UX — Tutor Adaptativo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --ink: #1e2a3b;
+    --ink-soft: #5b6b82;
+    --ink-faint: #93a1b5;
+    --paper: #f4f7fc;
+    --surface: #ffffff;
+    --line: #dbe3ef;
+    --accent: #2f6fed;
+    --accent-dark: #1e4fc4;
+    --accent-soft: #eaf1ff;
+    --success: #16a34a;
+    --success-soft: #e7f8ed;
+    --success-line: #86e0a6;
+    --hint: #9a5b12;
+    --hint-soft: #fef3c7;
+    --hint-line: #f3d385;
+    --danger: #dc2626;
+    --danger-soft: #fdecec;
+    --radius-lg: 22px;
+    --radius-md: 14px;
+    --shadow: 0 10px 28px rgba(30, 42, 59, 0.08), 0 2px 6px rgba(30, 42, 59, 0.05);
+    --font-display: ui-rounded, "SF Pro Rounded", "Segoe UI Rounded", "Nunito", system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7edf7;
+      --ink-soft: #9fb0c8;
+      --ink-faint: #6b7a92;
+      --paper: #0d1420;
+      --surface: #161f30;
+      --line: #2a3550;
+      --accent: #7ba2ff;
+      --accent-dark: #a8c3ff;
+      --accent-soft: #1c2942;
+      --success: #52d489;
+      --success-soft: #123822;
+      --success-line: #1f5c39;
+      --hint: #f0b757;
+      --hint-soft: #3a2c0f;
+      --hint-line: #5c4517;
+      --danger: #f87171;
+      --danger-soft: #3a1616;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e7edf7;
+    --ink-soft: #9fb0c8;
+    --ink-faint: #6b7a92;
+    --paper: #0d1420;
+    --surface: #161f30;
+    --line: #2a3550;
+    --accent: #7ba2ff;
+    --accent-dark: #a8c3ff;
+    --accent-soft: #1c2942;
+    --success: #52d489;
+    --success-soft: #123822;
+    --success-line: #1f5c39;
+    --hint: #f0b757;
+    --hint-soft: #3a2c0f;
+    --hint-line: #5c4517;
+    --danger: #f87171;
+    --danger-soft: #3a1616;
+  }
+  :root[data-theme="light"] {
+    --ink: #1e2a3b;
+    --ink-soft: #5b6b82;
+    --ink-faint: #93a1b5;
+    --paper: #f4f7fc;
+    --surface: #ffffff;
+    --line: #dbe3ef;
+    --accent: #2f6fed;
+    --accent-dark: #1e4fc4;
+    --accent-soft: #eaf1ff;
+    --success: #16a34a;
+    --success-soft: #e7f8ed;
+    --success-line: #86e0a6;
+    --hint: #9a5b12;
+    --hint-soft: #fef3c7;
+    --hint-line: #f3d385;
+    --danger: #dc2626;
+    --danger-soft: #fdecec;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    max-width: 1360px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { display: none; }
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    padding: 2.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    border-right: 1px solid var(--line);
+  }
+
+  .toc-brand {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+  }
+
+  .toc-brand span { color: var(--accent); }
+
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    counter-reset: toc;
+  }
+
+  nav.toc a {
+    counter-increment: toc;
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 0.92rem;
+  }
+
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+  }
+
+  nav.toc a:hover { background: var(--accent-soft); color: var(--accent-dark); }
+
+  main { min-width: 0; padding: 0 0 6rem; }
+
+  header.masthead {
+    padding: 4.5rem clamp(1.5rem, 5vw, 4rem) 3rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .eyebrow {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.9rem;
+  }
+
+  h1.title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 2.9rem);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0 0 1rem;
+    max-width: 20ch;
+    text-wrap: balance;
+  }
+
+  p.lede {
+    font-size: 1.15rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    line-height: 1.6;
+    margin: 0 0 2rem;
+  }
+
+  .method-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    max-width: 920px;
+  }
+
+  .method-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.25rem;
+  }
+
+  .method-card h4 {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+  }
+
+  .method-card p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  section.heuristics {
+    padding: 3rem clamp(1.5rem, 5vw, 4rem);
+    border-bottom: 1px solid var(--line);
+  }
+
+  section.heuristics h2 { font-family: var(--font-display); font-size: 1.5rem; margin: 0 0 1.25rem; }
+
+  .heuristics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+
+  .heuristics-table th {
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    padding: 0 0.75rem 0.6rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .heuristics-table td {
+    padding: 0.65rem 0.75rem 0.65rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    color: var(--ink-soft);
+  }
+
+  .heuristics-table td.code {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .heuristics-table td.name { color: var(--ink); font-weight: 600; }
+
+  .heuristics-wrap { overflow-x: auto; }
+
+  section.page-section {
+    padding: 4rem clamp(1.5rem, 5vw, 4rem);
+    border-bottom: 1px solid var(--line);
+  }
+
+  section.page-section:nth-of-type(even) { background: var(--surface); }
+
+  .page-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.75rem;
+  }
+
+  .page-eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  h2.page-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    margin: 0 0 2rem;
+    letter-spacing: -0.01em;
+  }
+
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+    gap: 3rem;
+    align-items: start;
+  }
+
+  @media (max-width: 920px) {
+    .analysis-grid { grid-template-columns: 1fr; }
+  }
+
+  .analysis-col h4 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    margin: 1.75rem 0 0.6rem;
+  }
+
+  .analysis-col h4:first-child { margin-top: 0; }
+
+  .analysis-col ul { margin: 0; padding-left: 1.15rem; }
+  .analysis-col li { margin-bottom: 0.5rem; line-height: 1.55; color: var(--ink-soft); }
+  .analysis-col li b { color: var(--ink); font-weight: 600; }
+  .analysis-col p { line-height: 1.6; color: var(--ink-soft); margin: 0; }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .heur-chip {
+    display: inline-flex;
+    gap: 0.4rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.82rem;
+    font-family: var(--font-mono);
+    color: var(--ink-soft);
+    margin: 0 0.4rem 0.4rem 0;
+  }
+
+  .heur-chip b { color: var(--accent); }
+
+  /* ---- Mockup frame ---- */
+
+  .mockup-col { position: sticky; top: 2rem; }
+
+  .mockup-frame {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .mockup-chrome {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.75rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mockup-chrome span { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+
+  .mockup-body {
+    padding: 1.5rem;
+    background: var(--paper);
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mock-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    width: 100%;
+    font-size: 0.85rem;
+  }
+
+  .mock-h1 { font-size: 1.15rem; font-weight: 800; margin: 0 0 0.2rem; text-align: center; }
+  .mock-sub { font-size: 0.78rem; color: var(--ink-soft); text-align: center; margin: 0 0 1.1rem; }
+
+  .mock-avatar {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 0.75rem;
+  }
+
+  .mock-tabs { display: flex; gap: 0.3rem; background: var(--paper); border-radius: 999px; padding: 0.25rem; margin-bottom: 1rem; }
+  .mock-tab { flex: 1; text-align: center; padding: 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--ink-faint); }
+  .mock-tab.on { background: var(--accent); color: white; }
+
+  .mock-field { margin-bottom: 0.8rem; }
+  .mock-field label { display: block; font-size: 0.68rem; font-weight: 700; margin-bottom: 0.3rem; color: var(--ink); }
+  .mock-input { border: 2px solid var(--line); border-radius: 9px; padding: 0.55rem 0.7rem; font-size: 0.78rem; color: var(--ink-faint); }
+
+  .mock-btn {
+    background: var(--accent); color: white; text-align: center;
+    padding: 0.65rem; border-radius: 11px; font-weight: 700; font-size: 0.8rem;
+    margin-top: 0.4rem;
+  }
+  .mock-btn.ghost { background: var(--hint-soft); color: var(--hint); border: 1.5px solid var(--hint-line); }
+  .mock-btn.outline { background: var(--accent-soft); color: var(--accent-dark); }
+
+  .mock-steps { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; }
+  .mock-steps i { flex: 1; height: 6px; border-radius: 999px; background: var(--line); display: block; }
+  .mock-steps i.done { background: var(--success); }
+  .mock-steps i.on { background: var(--accent); }
+  .mock-step-label { font-size: 0.68rem; color: var(--ink-faint); margin-bottom: 0.8rem; }
+
+  .mock-q { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.9rem; line-height: 1.4; }
+
+  .mock-alt { border: 2px solid var(--line); border-radius: 10px; padding: 0.6rem 0.75rem; margin-bottom: 0.5rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
+  .mock-alt.sel { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+  .mock-alt.ok { border-color: var(--success-line); background: var(--success-soft); }
+  .mock-alt.bad { border-color: var(--hint-line); background: var(--hint-soft); }
+  .mock-alt i.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink-faint); flex-shrink: 0; }
+
+  .mock-feedback {
+    display: flex; gap: 0.6rem; background: var(--hint-soft); border: 1.5px solid var(--hint-line);
+    border-radius: 12px; padding: 0.85rem; margin-top: 0.9rem; font-size: 0.78rem; color: var(--hint); line-height: 1.45;
+  }
+  .mock-feedback .bubble { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.7rem; }
+
+  .mock-row { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .mock-row .mock-btn { flex: 1; margin-top: 0; }
+
+  .mock-summary { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.85rem; display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.6rem; }
+  .mock-summary .ic { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.75rem; }
+  .mock-summary .val { font-weight: 800; font-size: 0.95rem; }
+  .mock-summary .lbl { font-size: 0.68rem; color: var(--ink-faint); }
+
+  .mock-track { display: flex; gap: 0.4rem; margin: 0.5rem 0 1rem; }
+  .mock-track .st { flex: 1; text-align: center; }
+  .mock-track .st .c { width: 26px; height: 26px; border-radius: 50%; background: var(--line); color: var(--ink-faint); display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; margin: 0 auto 0.25rem; }
+  .mock-track .st.done .c { background: var(--success); color: white; }
+  .mock-track .st.cur .c { background: var(--accent); color: white; }
+  .mock-track .st span.t { font-size: 0.6rem; color: var(--ink-faint); }
+
+  .mock-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .mock-badge { background: var(--success-soft); color: var(--success); border: 1px solid var(--success-line); border-radius: 999px; padding: 0.25rem 0.6rem; font-size: 0.65rem; font-weight: 700; }
+  .mock-badge.locked { background: var(--paper); color: var(--ink-faint); border-color: var(--line); }
+
+  .mock-teacher-card { border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.6rem; }
+  .mock-teacher-card .top { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.5rem; }
+  .mock-teacher-card .av { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-dark); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.72rem; flex-shrink: 0; }
+  .mock-teacher-card .em { font-size: 0.78rem; font-weight: 700; }
+  .mock-teacher-card .tags { display: flex; gap: 0.3rem; }
+  .mock-teacher-card .tag { background: var(--paper); border-radius: 999px; padding: 0.15rem 0.5rem; font-size: 0.6rem; color: var(--ink-soft); }
+
+  footer.colophon {
+    padding: 3rem clamp(1.5rem, 5vw, 4rem);
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  footer.colophon a { color: var(--accent); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    section.page-section, header.masthead { animation: rise 0.5s ease both; }
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<div class="layout">
+  <nav class="toc" aria-label="Sumário">
+    <div class="toc-brand">Redesign <span>UX</span></div>
+    <ol>
+      <li><a href="#metodo">Método</a></li>
+      <li><a href="#login">Login e cadastro</a></li>
+      <li><a href="#diagnostico">Diagnóstico</a></li>
+      <li><a href="#exercicio">Exercício</a></li>
+      <li><a href="#dashboard">Painel do aluno</a></li>
+      <li><a href="#professor">Painel do professor</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <div class="eyebrow">Estudo de UX · Tutor Adaptativo</div>
+      <h1 class="title">De ferramenta técnica a professor particular</h1>
+      <p class="lede">
+        Redesign completo da interface do tutor adaptativo, pensado para estudantes do ensino médio,
+        professores e responsáveis com pouca familiaridade com tecnologia. A meta não é parecer bonito —
+        é remover qualquer momento em que a pessoa pare e pense <em>"e agora, o que eu faço?"</em>
+      </p>
+
+      <div class="method-grid">
+        <div class="method-card">
+          <h4>Quem usa</h4>
+          <p>Adolescentes estudando sozinhos, professores acompanhando turmas, responsáveis dando uma olhada — nenhum deles é usuário técnico.</p>
+        </div>
+        <div class="method-card">
+          <h4>O que muda</h4>
+          <p>Tema escuro denso → tema claro acolhedor. Telas cheias de dado técnico → uma decisão por tela. Jargão de sistema → linguagem de conversa.</p>
+        </div>
+        <div class="method-card">
+          <h4>Como validamos</h4>
+          <p>Cada decisão é justificada por uma heurística de Nielsen específica, não por preferência estética isolada.</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="heuristics" id="metodo">
+      <h2>As 10 heurísticas de Nielsen (referência rápida)</h2>
+      <div class="heuristics-wrap">
+        <table class="heuristics-table">
+          <thead>
+            <tr><th>Código</th><th>Heurística</th><th>O que verifica</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="code">H1</td><td class="name">Visibilidade do status</td><td>O sistema sempre mostra o que está acontecendo?</td></tr>
+            <tr><td class="code">H2</td><td class="name">Correspondência com o mundo real</td><td>A linguagem é a do usuário, não a do banco de dados?</td></tr>
+            <tr><td class="code">H3</td><td class="name">Controle e liberdade</td><td>Dá pra voltar, cancelar, tentar de novo sem medo?</td></tr>
+            <tr><td class="code">H4</td><td class="name">Consistência e padrões</td><td>O mesmo elemento sempre se comporta do mesmo jeito?</td></tr>
+            <tr><td class="code">H5</td><td class="name">Prevenção de erros</td><td>O design evita que o erro aconteça, em vez de só avisar depois?</td></tr>
+            <tr><td class="code">H6</td><td class="name">Reconhecer em vez de lembrar</td><td>A informação necessária está visível, sem exigir memória?</td></tr>
+            <tr><td class="code">H7</td><td class="name">Flexibilidade e eficiência</td><td>Funciona bem tanto pra quem usa 1x quanto todo dia?</td></tr>
+            <tr><td class="code">H8</td><td class="name">Estética e design minimalista</td><td>Só existe na tela o que é essencial pra decisão atual?</td></tr>
+            <tr><td class="code">H9</td><td class="name">Reconhecer e recuperar de erros</td><td>O erro é explicado em linguagem humana, com saída clara?</td></tr>
+            <tr><td class="code">H10</td><td class="name">Ajuda e documentação</td><td>Existe apoio contextual sem precisar de manual?</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== LOGIN ===================== -->
+    <section class="page-section" id="login">
+      <div class="page-eyebrow"><span class="dot"></span>Tela 1 de 5</div>
+      <h2 class="page-title">Login e cadastro</h2>
+
+      <div class="analysis-grid">
+        <div class="analysis-col">
+          <h4>Problemas encontrados</h4>
+          <ul>
+            <li>Tela escura e densa (fundo <code>#0f172a</code>) — mais parecida com painel de desenvolvedor do que com um app educativo.</li>
+            <li>Abas "Entrar" / "Criar conta" sem indicar o que o app faz — primeira impressão é neutra, não acolhedora.</li>
+            <li>Sem ilustração ou elemento visual que humanize a experiência antes do formulário.</li>
+            <li>Mensagens de erro genéricas ("Erro inesperado") não dizem o que fazer a seguir.</li>
+          </ul>
+
+          <h4>O que mudou e por quê</h4>
+          <ul>
+            <li><b>Título vira uma promessa, não um nome de produto:</b> "Seu tutor particular" comunica o papel do sistema antes de qualquer campo de formulário.</li>
+            <li><b>Ícone circular acolhedor</b> no topo, no lugar de nada — âncora visual amigável logo no primeiro contato.</li>
+            <li><b>Abas renomeadas</b> de "Entrar/Criar conta" para "Já tenho conta" / "Sou novo aqui" — fala como uma pessoa fala, não como um formulário.</li>
+            <li><b>Erros reescritos</b> em linguagem completa e acionável: "Não foi possível entrar. Confira seu email e senha e tente de novo."</li>
+          </ul>
+
+          <h4>Heurísticas aplicadas</h4>
+          <div class="chip-row" style="margin-bottom:0.5rem">
+            <span class="heur-chip"><b>H2</b> mundo real</span>
+            <span class="heur-chip"><b>H9</b> erros humanos</span>
+            <span class="heur-chip"><b>H8</b> minimalismo</span>
+          </div>
+          <p>H2 rege a troca de rótulos técnicos por fala natural. H9 rege a reescrita das mensagens de erro para explicar causa e próximo passo. H8 mantém a tela com só três blocos: identidade, seletor de modo, formulário.</p>
+
+          <h4>Componentes utilizados</h4>
+          <p>Card único centralizado · Avatar circular · Segmented control (abas em pílula) · Campos com label fixo acima (nunca só placeholder) · Botão primário largo · Bloco de erro com contraste AA.</p>
+
+          <h4>Hierarquia visual</h4>
+          <p>1) ícone + promessa da marca — 2) seletor de modo — 3) formulário — 4) ação primária. Nada compete com o botão de submissão: é o único elemento em azul sólido na tela.</p>
+        </div>
+
+        <div class="mockup-col">
+          <div class="mockup-frame">
+            <div class="mockup-chrome"><span></span><span></span><span></span></div>
+            <div class="mockup-body">
+              <div class="mock-card">
+                <div class="mock-avatar">📘</div>
+                <div class="mock-h1">Seu tutor particular</div>
+                <div class="mock-sub">Estude no seu ritmo, com ajuda passo a passo.</div>
+                <div class="mock-tabs">
+                  <div class="mock-tab on">Já tenho conta</div>
+                  <div class="mock-tab">Sou novo aqui</div>
+                </div>
+                <div class="mock-field"><label>Seu email</label><div class="mock-input">nome@exemplo.com</div></div>
+                <div class="mock-field"><label>Sua senha</label><div class="mock-input">••••••••</div></div>
+                <div class="mock-btn">Entrar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DIAGNOSTICO ===================== -->
+    <section class="page-section" id="diagnostico">
+      <div class="page-eyebrow"><span class="dot"></span>Tela 2 de 5</div>
+      <h2 class="page-title">Diagnóstico inicial</h2>
+
+      <div class="analysis-grid">
+        <div class="analysis-col">
+          <h4>Problemas encontrados</h4>
+          <ul>
+            <li>As 3 perguntas apareciam <b>todas juntas</b> em uma lista longa — carga cognitiva alta para quem já está ansioso num teste de nivelamento.</li>
+            <li>Nenhuma indicação de propósito: a pessoa não sabia por que estava respondendo aquilo nem que não valia nota.</li>
+            <li>Resultado final era só um número e uma palavra técnica ("nível: básico"), sem calor humano.</li>
+          </ul>
+
+          <h4>O que mudou e por quê</h4>
+          <ul>
+            <li><b>Tela de intro antes da 1ª pergunta</b>, explicando em uma frase o que vai acontecer e tranquilizando ("não existe nota").</li>
+            <li><b>Uma pergunta por vez</b>, com stepper mostrando quanto falta — decisão isolada, sem rolagem, sem comparar respostas.</li>
+            <li><b>Tela de resultado calorosa</b>: ícone de conquista, "Prontinho!", e o nível como próximo passo, não como nota.</li>
+          </ul>
+
+          <h4>Heurísticas aplicadas</h4>
+          <div class="chip-row" style="margin-bottom:0.5rem">
+            <span class="heur-chip"><b>H1</b> visibilidade</span>
+            <span class="heur-chip"><b>H6</b> reconhecer, não lembrar</span>
+            <span class="heur-chip"><b>H8</b> minimalismo</span>
+          </div>
+          <p>H1: o stepper deixa sempre visível "quanto falta". H6: a pessoa nunca precisa lembrar em que pergunta está ou quantas já fez — está na tela. H8: cada tela tem exatamente uma decisão a tomar.</p>
+
+          <h4>Componentes utilizados</h4>
+          <p>Stepper linear (pontos de progresso) · Card de pergunta única · Lista de alternativas clicáveis (área de toque de 56px) · Empty state ilustrado na tela de resultado.</p>
+
+          <h4>Hierarquia visual</h4>
+          <p>Stepper no topo (contexto) → pergunta em destaque (foco) → alternativas → botão único "Continuar". O botão só ativa após uma escolha, prevenindo o erro de enviar vazio (H5).</p>
+        </div>
+
+        <div class="mockup-col">
+          <div class="mockup-frame">
+            <div class="mockup-chrome"><span></span><span></span><span></span></div>
+            <div class="mockup-body">
+              <div class="mock-card">
+                <div class="mock-steps"><i class="done"></i><i class="on"></i><i></i></div>
+                <div class="mock-step-label">Pergunta 2 de 3</div>
+                <div class="mock-q">Quanto é 1/2 + 1/4?</div>
+                <div class="mock-alt"><i class="dot"></i>2/6</div>
+                <div class="mock-alt sel"><i class="dot"></i>3/4</div>
+                <div class="mock-alt"><i class="dot"></i>2/4</div>
+                <div class="mock-btn" style="margin-top:0.9rem">Continuar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== EXERCICIO ===================== -->
+    <section class="page-section" id="exercicio">
+      <div class="page-eyebrow"><span class="dot"></span>Tela 3 de 5 · foco principal</div>
+      <h2 class="page-title">Exercício</h2>
+
+      <div class="analysis-grid">
+        <div class="analysis-col">
+          <h4>Problemas encontrados</h4>
+          <ul>
+            <li>Fileira de <b>3 badges técnicos</b> no topo (Nível / Grupo / Reforço) antes mesmo da pergunta — informação que não ajuda a resolver o exercício.</li>
+            <li>Botão chamado "Responder" — nome de operação de API, não de conversa.</li>
+            <li>Nenhum indicador de progresso dentro do bloco de exercícios atual.</li>
+            <li>Feedback de erro usava vermelho de alerta crítico para um simples "você errou" — assusta em vez de convidar a tentar de novo.</li>
+          </ul>
+
+          <h4>O que mudou e por quê</h4>
+          <ul>
+            <li><b>Removidos todos os badges.</b> A tela agora tem só: pergunta, alternativas, indicador de progresso, botão Continuar e botão de ajuda — nada mais.</li>
+            <li><b>"Responder" → "Continuar"</b>: mesmo rótulo do resto do fluxo, reduz o vocabulário que a pessoa precisa aprender.</li>
+            <li><b>Indicador de progresso</b> (3 pontinhos) mostra em que exercício do bloco atual a pessoa está, sem expor a lógica interna da janela móvel.</li>
+            <li><b>Vermelho reservado para erro grave de sistema.</b> Errar uma questão agora usa o amarelo de "dica", com título "Quase! Vamos pensar juntos" — reformula o erro como parte do aprendizado.</li>
+            <li><b>Botão "Preciso de ajuda"</b> sempre visível, abrindo uma folha com linguagem tranquilizadora — ninguém fica travado sem saber o que fazer.</li>
+          </ul>
+
+          <h4>Heurísticas aplicadas</h4>
+          <div class="chip-row" style="margin-bottom:0.5rem">
+            <span class="heur-chip"><b>H8</b> minimalismo</span>
+            <span class="heur-chip"><b>H1</b> visibilidade</span>
+            <span class="heur-chip"><b>H10</b> ajuda</span>
+            <span class="heur-chip"><b>H4</b> consistência</span>
+          </div>
+          <p>H8 domina esta tela: cada elemento que não serve à decisão imediata (responder a pergunta) foi removido ou movido para o painel do aluno. H10 é resolvida pelo botão de ajuda sempre à mão, sem precisar sair da tela.</p>
+
+          <h4>Componentes utilizados</h4>
+          <p>Stepper de bloco (3 pontos) · Cartão de pergunta · Lista de alternativas com estado selecionado/correto/incorreto · Balão de feedback estilo chat com ícone de tutor · Bottom sheet de ajuda · Faixa de "você subiu de nível".</p>
+
+          <h4>Hierarquia visual</h4>
+          <p>Pergunta é o elemento maior e mais escuro da tela. Alternativas em peso médio. Feedback só aparece depois da resposta, no mesmo lugar, sem reposicionar a tela — preserva a orientação espacial do aluno (H4).</p>
+        </div>
+
+        <div class="mockup-col">
+          <div class="mockup-frame">
+            <div class="mockup-chrome"><span></span><span></span><span></span></div>
+            <div class="mockup-body">
+              <div class="mock-card">
+                <div class="mock-steps"><i class="done"></i><i class="done"></i><i></i></div>
+                <div class="mock-q">Quais as raízes de x² − 5x + 6 = 0?</div>
+                <div class="mock-alt"><i class="dot"></i>x = 1 e x = 6</div>
+                <div class="mock-alt bad"><i class="dot"></i>x = 2 e x = -3</div>
+                <div class="mock-alt"><i class="dot"></i>x = -2 e x = -3</div>
+                <div class="mock-feedback">
+                  <div class="bubble">✨</div>
+                  <div>Você se lembra de qual fórmula resolve equações do 2º grau? Qual valor você acha que o delta assume aqui?</div>
+                </div>
+                <div class="mock-row">
+                  <div class="mock-btn" style="flex:1">Continuar</div>
+                  <div class="mock-btn ghost" style="flex:1">? Preciso de ajuda</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <section class="page-section" id="dashboard">
+      <div class="page-eyebrow"><span class="dot"></span>Tela 4 de 5</div>
+      <h2 class="page-title">Painel do aluno</h2>
+
+      <div class="analysis-grid">
+        <div class="analysis-col">
+          <h4>Problemas encontrados</h4>
+          <ul>
+            <li>Mostrava contadores internos do algoritmo (<code>window_count</code>, <code>window_correct</code>) — vocabulário de log de sistema, não de progresso pessoal.</li>
+            <li>Nenhuma sensação de conquista — só números frios de acerto/erro.</li>
+            <li>Sem direção clara de "o que fazer agora" — a pessoa via dados, mas não uma próxima ação óbvia.</li>
+          </ul>
+
+          <h4>O que mudou e por quê</h4>
+          <ul>
+            <li><b>Saudação pelo primeiro nome</b> ("Olá, joão!") — o painel abre como uma conversa, não como um relatório.</li>
+            <li><b>Trilha de nível</b> (Básico → Intermediário → Avançado) substitui os contadores técnicos por uma linha do tempo que qualquer um entende de relance.</li>
+            <li><b>Tempo de estudo hoje</b> e <b>% de acerto</b> como só 2 números — os únicos que importam para autoavaliação.</li>
+            <li><b>Conquistas em selo</b> (Primeiros passos, Nível intermediário...) dão a mesma sensação de progresso de um app de hábito, sem gráfico nenhum.</li>
+            <li><b>Um único botão grande no final</b>: "Continuar estudando" — a tela sempre termina apontando a próxima ação.</li>
+          </ul>
+
+          <h4>Heurísticas aplicadas</h4>
+          <div class="chip-row" style="margin-bottom:0.5rem">
+            <span class="heur-chip"><b>H2</b> mundo real</span>
+            <span class="heur-chip"><b>H6</b> reconhecer</span>
+            <span class="heur-chip"><b>H8</b> minimalismo</span>
+          </div>
+          <p>H2 rege a troca de métricas de algoritmo por conceitos humanos (trilha, selo, tempo). H6: o próprio painel lembra o aluno de onde ele parou — ele não precisa guardar isso na cabeça entre sessões.</p>
+
+          <h4>Componentes utilizados</h4>
+          <p>Saudação + subtítulo · Timeline horizontal de 3 estágios · Cards de resumo com ícone · Fileira de badges de conquista (desbloqueado/bloqueado) · Botão primário de largura total.</p>
+
+          <h4>Hierarquia visual</h4>
+          <p>Saudação (maior, mais pessoal) → trilha de nível (visual, ocupa a largura) → dois cards de número → conquistas → botão de ação. Sem gráfico de linha, pizza ou tabela — nenhum elemento exige "leitura" de dado, só reconhecimento.</p>
+        </div>
+
+        <div class="mockup-col">
+          <div class="mockup-frame">
+            <div class="mockup-chrome"><span></span><span></span><span></span></div>
+            <div class="mockup-body">
+              <div class="mock-card">
+                <div style="font-weight:800;font-size:1.05rem;margin-bottom:0.15rem">Olá, joão!</div>
+                <div class="mock-sub" style="text-align:left;margin-bottom:0.9rem">Vamos continuar de onde você parou?</div>
+                <div class="mock-track">
+                  <div class="st done"><div class="c">✓</div><span class="t">Básico</span></div>
+                  <div class="st cur"><div class="c">2</div><span class="t">Intermed.</span></div>
+                  <div class="st"><div class="c">3</div><span class="t">Avançado</span></div>
+                </div>
+                <div class="mock-summary"><div class="ic">📖</div><div><div class="val">78%</div><div class="lbl">Você acerta</div></div></div>
+                <div class="mock-summary"><div class="ic">⏱</div><div><div class="val">12 min</div><div class="lbl">Estudados hoje</div></div></div>
+                <div class="mock-badges">
+                  <span class="mock-badge">🏆 Primeiros passos</span>
+                  <span class="mock-badge">🏆 Nível intermediário</span>
+                  <span class="mock-badge locked">🏆 10 acertos</span>
+                </div>
+                <div class="mock-btn" style="margin-top:1rem">Continuar estudando →</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PROFESSOR ===================== -->
+    <section class="page-section" id="professor">
+      <div class="page-eyebrow"><span class="dot"></span>Tela 5 de 5</div>
+      <h2 class="page-title">Painel do professor</h2>
+
+      <div class="analysis-grid">
+        <div class="analysis-col">
+          <h4>Problemas encontrados</h4>
+          <ul>
+            <li>Lista de alunos em <b>tabela densa</b> — difícil de escanear em tablet ou celular, comum entre professores.</li>
+            <li>Métricas com nome de telemetria de engenharia: "taxa de vazamento detectado", "latência média Gemini", "fallback_used_count".</li>
+            <li>Nenhuma distinção visual entre um aluno indo bem e um precisando de atenção.</li>
+          </ul>
+
+          <h4>O que mudou e por quê</h4>
+          <ul>
+            <li><b>Tabela → cards por aluno</b>, com avatar, nível e status em selos — folha de rosto, não planilha. Funciona em qualquer largura de tela sem rolagem horizontal.</li>
+            <li><b>Métricas traduzidas para linguagem de professor:</b> "latência média" → "tempo de resposta da IA"; "taxa de vazamento" → "vezes que a IA se autocorrigiu" (comunica que o sistema de segurança funcionou, não que algo vazou).</li>
+            <li><b>Selo de status</b> ("Diagnóstico pendente" em amarelo) permite escanear rapidamente quem precisa de atenção, sem ler cada linha.</li>
+            <li>Controle de modo de ensino por aluno continua existindo, mas como um campo simples dentro do card, rotulado em português claro ("Explicação direta" / "Perguntas guiadas").</li>
+          </ul>
+
+          <h4>Heurísticas aplicadas</h4>
+          <div class="chip-row" style="margin-bottom:0.5rem">
+            <span class="heur-chip"><b>H2</b> mundo real</span>
+            <span class="heur-chip"><b>H8</b> minimalismo</span>
+            <span class="heur-chip"><b>H7</b> flexibilidade</span>
+          </div>
+          <p>H2 rege toda a tradução de termos técnicos. H7: os cards resumem por padrão (visão rápida para uso ocasional), mas o seletor de modo continua ali para o professor que quer ajustar caso a caso, sem tela extra.</p>
+
+          <h4>Componentes utilizados</h4>
+          <p>Cards de estatística por grupo experimental · Grade de cards de aluno (avatar + selos + seletor) · Barra de distribuição por nível · Empty state para turma vazia.</p>
+
+          <h4>Hierarquia visual</h4>
+          <p>Resumo por grupo primeiro (visão geral da turma) → grade de alunos individuais depois (ação pontual). Segue o princípio de "resumo antes do detalhe" — o professor entende o todo antes de mexer em um caso específico.</p>
+        </div>
+
+        <div class="mockup-col">
+          <div class="mockup-frame">
+            <div class="mockup-chrome"><span></span><span></span><span></span></div>
+            <div class="mockup-body">
+              <div class="mock-card">
+                <div style="font-weight:800;font-size:1rem;margin-bottom:0.9rem">Painel do professor</div>
+                <div class="mock-teacher-card">
+                  <div class="top">
+                    <div class="av">A</div>
+                    <div>
+                      <div class="em">aluno@escola.com</div>
+                      <div class="tags"><span class="tag">Intermediário</span><span class="tag">Diagnóstico feito</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mock-teacher-card">
+                  <div class="top">
+                    <div class="av">B</div>
+                    <div>
+                      <div class="em">beatriz@escola.com</div>
+                      <div class="tags"><span class="tag">Básico</span><span class="tag" style="background:var(--hint-soft);color:var(--hint)">Diagnóstico pendente</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="colophon">
+      Documento produzido como parte do capítulo de UX do TCC. Paleta, tipografia e componentes descritos aqui
+      correspondem 1:1 ao design system implementado em <code>frontend/src/styles.css</code>.
+    </footer>
+  </main>
+</div>
