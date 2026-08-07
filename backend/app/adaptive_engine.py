@@ -1,11 +1,33 @@
+"""Motor adaptativo dos exercicios avulsos (/exercises/next).
+
+O que mudou em relacao a versao anterior, e por que:
+
+- a busca por uma questao nova comeca no banco. Se ja existe questao do nivel
+  que o aluno nunca viu, ela e servida sem tocar na API;
+- quando precisa gerar, gera um LOTE (PREFETCH_BATCH_SIZE) em vez de uma
+  questao. As excedentes ficam no banco e alimentam os proximos exercicios de
+  graca — uma chamada passa a cobrir varios exercicios;
+- a chamada e assincrona, entao esperar o Gemini nao bloqueia o worker.
+
+A regra pedagogica da janela movel nao mudou.
+"""
+
+from __future__ import annotations
+
 import logging
-import random
 
 from sqlalchemy.orm import Session
 
-from app import gemini_orchestrator
-from app.models import LEVEL_ORDER, Attempt, Level, Question, User
-from app.rate_limit import enforce_gemini_rate_limit
+from app.ai.questions import QuestionBatchSpec, generate_batch
+from app.models import LEVEL_ORDER, Module, Question, User
+from app.quiz_service import (
+    _fallback_questions,
+    _persist_generated,
+    _recent_statements,
+    _reusable_questions,
+    _seen_question_ids,
+)
+from app.study_plan import assign_initial_level  # noqa: F401  (reexport compativel)
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +37,9 @@ WINDOW_SIZE = 5
 # acerto, mesma proporcao da regra original pensada pra janela de 3).
 REMEDIATION_MAX_CORRECT = WINDOW_SIZE // 3
 
-# Quantas perguntas recentes do aluno sao lembradas pra pedir ao Gemini que
-# nao repita (e para o fallback estatico escolher algo ainda nao visto).
-RECENT_HISTORY_SIZE = 20
+# Quantas questoes sao geradas de uma vez quando o banco nao tem novidade.
+# Amortiza o custo/latencia da chamada entre varios exercicios seguintes.
+PREFETCH_BATCH_SIZE = 3
 
 
 def evaluate_window(user: User) -> tuple[bool, bool]:
@@ -63,87 +85,45 @@ def record_attempt(user: User, correct: bool) -> tuple[bool, bool]:
     return False, False
 
 
-def _recent_statements(user: User, db: Session) -> list[str]:
-    rows = (
-        db.query(Question.statement)
-        .join(Attempt, Attempt.question_id == Question.id)
-        .filter(Attempt.user_id == user.id, Attempt.is_diagnostic.is_(False))
-        .order_by(Attempt.created_at.desc())
-        .limit(RECENT_HISTORY_SIZE)
-        .all()
+async def get_or_generate_question(
+    user: User,
+    db: Session,
+    module: Module | None = None,
+) -> Question | None:
+    """Proxima questao do aluno, na ordem mais barata possivel."""
+
+    seen_ids = _seen_question_ids(db, user)
+
+    reusable = _reusable_questions(
+        db,
+        user,
+        module,
+        user.level,
+        user.needs_remediation,
+        limit=1,
+        seen_ids=seen_ids,
     )
-    return [r[0] for r in rows]
+    if reusable:
+        return reusable[0]
 
-
-def _fallback_static_question(user: User, db: Session, seen_statements: set[str]) -> Question | None:
-    """Banco de reserva (seed.py): usado quando o Gemini falha, devolve
-    schema invalido, ou insiste em repetir uma pergunta ja vista."""
-    query = db.query(Question).filter(
-        Question.level == user.level,
-        Question.is_diagnostic.is_(False),
-        Question.generated.is_(False),
-        Question.is_remedial.is_(user.needs_remediation),
+    spec = QuestionBatchSpec(
+        kind="reforco" if user.needs_remediation else "pratica",
+        count=PREFETCH_BATCH_SIZE,
+        level=user.level,
+        subject=module.subject.name if module is not None and module.subject else "Matematica",
+        module_title=module.title if module else "",
+        contents=list(module.contents or []) if module else [],
+        objectives=list(module.objectives or []) if module else [],
     )
-    candidates = query.all()
-    unseen = [q for q in candidates if q.statement not in seen_statements]
-    if unseen:
-        return random.choice(unseen)
-    if candidates:
-        return random.choice(candidates)
+    generated = await generate_batch(spec, _recent_statements(db, user))
+    if generated:
+        saved = _persist_generated(db, user, module, generated, user.level, user.needs_remediation)
+        fresh = [q for q in saved if q.id not in seen_ids]
+        if fresh:
+            return fresh[0]
+        if saved:
+            return saved[0]
 
-    # Ultimo recurso: qualquer questao de reserva do nivel, remedial ou nao.
-    any_question = db.query(Question).filter(
-        Question.level == user.level, Question.is_diagnostic.is_(False), Question.generated.is_(False)
-    ).all()
-    return random.choice(any_question) if any_question else None
-
-
-def get_or_generate_question(user: User, db: Session) -> Question | None:
-    """Fonte principal de exercicios: pede ao Gemini para escrever uma
-    questao inedita para o nivel/estagio atual do aluno, evitando repetir
-    o que ele ja respondeu. Se a IA falhar, devolver algo mal formado, ou
-    insistir em repetir, cai no banco de reserva estatico (seed.py) —
-    disponibilidade da atividade importa mais do que novidade."""
-    seen = set(_recent_statements(user, db))
-
-    try:
-        enforce_gemini_rate_limit(user.id)
-        generated = gemini_orchestrator.generate_question(
-            level=user.level,
-            is_remedial=user.needs_remediation,
-            avoid_statements=list(seen),
-        )
-        if generated.statement in seen:
-            logger.warning("Gemini repetiu uma pergunta ja vista, usando banco de reserva")
-            raise ValueError("pergunta repetida")
-
-        question = Question(
-            level=user.level,
-            topic=generated.topic,
-            statement=generated.statement,
-            alternatives=[a.model_dump() for a in generated.alternatives],
-            correct_alternative_id=generated.correct_alternative_id,
-            directive_explanation=generated.directive_explanation,
-            is_remedial=user.needs_remediation,
-            is_diagnostic=False,
-            generated=True,
-            owner_user_id=user.id,
-        )
-        db.add(question)
-        db.flush()
-        return question
-    except Exception:
-        logger.exception("Falha ao gerar questao via Gemini, usando banco de reserva")
-        return _fallback_static_question(user, db, seen)
-
-
-def assign_initial_level(correct_count: int, total: int) -> Level:
-    """Passo 1: assinatura inicial de proficiencia a partir do teste de 3
-    problemas de nivelamento basico. Amostra pequena (n=3) — ver ressalva
-    metodologica no README — entao o mapeamento e conservador."""
-    if total <= 0:
-        return Level.BASICO
-    ratio = correct_count / total
-    if ratio == 1.0:
-        return Level.INTERMEDIARIO
-    return Level.BASICO
+    logger.warning("Geracao indisponivel; usando acervo de reserva")
+    fallback = _fallback_questions(db, module, user.level, limit=1, exclude_ids=set())
+    return fallback[0] if fallback else None

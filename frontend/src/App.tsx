@@ -4,13 +4,25 @@ import Login from "./pages/Login";
 import Diagnostic from "./pages/Diagnostic";
 import Exercise from "./pages/Exercise";
 import Dashboard from "./pages/Dashboard";
+import Quiz from "./pages/Quiz";
+import Lesson from "./pages/Lesson";
+import Tutor from "./pages/Tutor";
 import Admin from "./pages/Admin";
 
-function defaultRouteFor(user: { is_admin: boolean; diagnostic_completed: boolean } | null): string {
+/**
+ * Rota padrao de cada estado do usuario.
+ *
+ * Depois do diagnostico o destino e o dashboard (e nao mais a lista de
+ * exercicios): e ele quem apresenta a trilha recem-montada e diz qual e o
+ * proximo passo.
+ */
+function defaultRouteFor(
+  user: { is_admin: boolean; diagnostic_completed: boolean } | null,
+): string {
   if (!user) return "/login";
   if (user.is_admin) return "/admin";
   if (!user.diagnostic_completed) return "/diagnostic";
-  return "/exercise";
+  return "/dashboard";
 }
 
 function StudentRoute({ children }: { children: JSX.Element }) {
@@ -25,7 +37,8 @@ function DiagnosticRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="card">Carregando...</div>;
   if (!user || user.is_admin) return <Navigate to={defaultRouteFor(user)} replace />;
-  if (user.diagnostic_completed) return <Navigate to="/exercise" replace />;
+  // Diagnostico concluido nunca reabre: o aluno vai direto para a trilha.
+  if (user.diagnostic_completed) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -48,10 +61,13 @@ export default function App() {
             {!user.is_admin && (
               <>
                 <Link className="link-button" to="/dashboard">
-                  Meu progresso
+                  Minha trilha
+                </Link>
+                <Link className="link-button" to="/tutor">
+                  Tutor
                 </Link>
                 <Link className="link-button" to="/exercise">
-                  Exercicios
+                  Pratica livre
                 </Link>
               </>
             )}
@@ -74,18 +90,42 @@ export default function App() {
             }
           />
           <Route
-            path="/exercise"
-            element={
-              <StudentRoute>
-                <Exercise />
-              </StudentRoute>
-            }
-          />
-          <Route
             path="/dashboard"
             element={
               <StudentRoute>
                 <Dashboard />
+              </StudentRoute>
+            }
+          />
+          <Route
+            path="/quiz"
+            element={
+              <StudentRoute>
+                <Quiz />
+              </StudentRoute>
+            }
+          />
+          <Route
+            path="/lesson"
+            element={
+              <StudentRoute>
+                <Lesson />
+              </StudentRoute>
+            }
+          />
+          <Route
+            path="/tutor"
+            element={
+              <StudentRoute>
+                <Tutor />
+              </StudentRoute>
+            }
+          />
+          <Route
+            path="/exercise"
+            element={
+              <StudentRoute>
+                <Exercise />
               </StudentRoute>
             }
           />

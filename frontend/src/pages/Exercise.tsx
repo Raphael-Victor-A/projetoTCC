@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api/client";
-import type { QuestionOut, AnswerResult, ProgressOut } from "../api/client";
+import type { AnswerResult, ProgressOut, QuestionOut } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import QuestionCard from "../components/QuestionCard";
+import AiFeedback from "../components/AiFeedback";
+import { StepperDots } from "../components/Progress";
+import { LoadingCard } from "../components/Loading";
 import { CheckIcon, HelpCircleIcon, LightbulbIcon, SparkleIcon } from "../components/Icons";
 
+/**
+ * Exercicios avulsos (pratica livre, fora da trilha).
+ *
+ * A submissao devolve a correcao na hora — o feedback pedagogico chega
+ * depois, em streaming, via <AiFeedback>. Antes, esta tela ficava parada ate
+ * a IA terminar de escrever a explicacao inteira.
+ */
 export default function Exercise() {
   const [question, setQuestion] = useState<QuestionOut | null>(null);
   const [progress, setProgress] = useState<ProgressOut | null>(null);
@@ -21,6 +32,7 @@ export default function Exercise() {
     setResult(null);
     setSelected(null);
     try {
+      // Questao e progresso sao independentes: buscados em paralelo.
       const [q, p] = await Promise.all([api.getNextExercise(), api.getProgress()]);
       setQuestion(q);
       setProgress(p);
@@ -59,7 +71,14 @@ export default function Exercise() {
     }
   }
 
-  if (loading) return <div className="card">Preparando sua atividade...</div>;
+  if (loading) {
+    return (
+      <LoadingCard
+        title="Preparando sua atividade"
+        messages={["Escolhendo a proxima questao...", "Ajustando ao seu nivel..."]}
+      />
+    );
+  }
   if (error && !question) return <div className="card error">{error}</div>;
   if (!question) return null;
 
@@ -67,38 +86,16 @@ export default function Exercise() {
 
   return (
     <div className="card">
-      <div className="stepper" aria-label="Seu progresso nesta etapa">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className={`stepper-dot ${i < filledDots ? "done" : ""}`} />
-        ))}
-      </div>
+      <StepperDots total={5} current={filledDots} />
 
-      <p className="question-statement">{question.statement}</p>
-
-      <div className="alternatives" role="radiogroup" aria-label="Alternativas">
-        {question.alternatives.map((alt) => {
-          let extraClass = "";
-          if (result) {
-            if (alt.id === result.correct_alternative_id) extraClass = "correct-reveal";
-            else if (alt.id === selected && !result.correct) extraClass = "wrong-reveal";
-          }
-          return (
-            <label
-              key={alt.id}
-              className={`alternative ${selected === alt.id ? "selected" : ""} ${result ? "disabled" : ""} ${extraClass}`}
-            >
-              <input
-                type="radio"
-                name="alt"
-                disabled={!!result}
-                checked={selected === alt.id}
-                onChange={() => setSelected(alt.id)}
-              />
-              {alt.text}
-            </label>
-          );
-        })}
-      </div>
+      <QuestionCard
+        question={question}
+        selected={selected}
+        onSelect={setSelected}
+        locked={!!result}
+        correctAlternativeId={result?.correct_alternative_id ?? null}
+        showResult={!!result}
+      />
 
       {error && (
         <p className="error" role="alert" style={{ marginBottom: "1rem" }}>
@@ -113,13 +110,8 @@ export default function Exercise() {
             {result.correct ? "Isso mesmo! Muito bem." : "Quase! Vamos pensar juntos."}
           </div>
 
-          {result.feedback && (
-            <div className="feedback-box">
-              <div className="feedback-icon">
-                <SparkleIcon size={18} />
-              </div>
-              <p className="feedback-text">{result.feedback.content}</p>
-            </div>
+          {result.feedback_available && result.attempt_id && (
+            <AiFeedback attemptId={result.attempt_id} />
           )}
 
           {result.level_changed && (
@@ -130,9 +122,9 @@ export default function Exercise() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem", flexWrap: "wrap" }}>
+      <div className="button-row" style={{ marginTop: "1.5rem" }}>
         <button disabled={(!result && !selected) || submitting} onClick={handleContinue} style={{ flex: 1 }}>
-          {submitting ? "Um momento..." : "Continuar"}
+          {submitting ? "Corrigindo..." : result ? "Proxima questao" : "Responder"}
         </button>
         <button type="button" className="help-fab" onClick={() => setShowHelp(true)}>
           <HelpCircleIcon size={18} /> Preciso de ajuda

@@ -1,8 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models import FeedbackGroup, Level
+from app.models import FeedbackGroup, Level, ModuleStatus, QuizKind
 
 
 class UserCreate(BaseModel):
@@ -42,6 +40,8 @@ class QuestionOut(BaseModel):
     alternatives: list[AlternativeOut]
     is_remedial: bool
     is_diagnostic: bool
+    module_id: int | None = None
+    subject_id: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -51,14 +51,220 @@ class AnswerIn(BaseModel):
     alternative_id: str
 
 
+# ---------------------------------------------------------------------------
+# Diagnostico
+# ---------------------------------------------------------------------------
+
+
+class DiagnosticOut(BaseModel):
+    """O diagnostico agora e sorteado por sessao: o cliente devolve o
+    session_id na submissao para que o servidor corrija exatamente o
+    conjunto que apresentou."""
+
+    session_id: int
+    questions: list[QuestionOut]
+
+
 class DiagnosticSubmitIn(BaseModel):
+    session_id: int | None = None
     answers: list[AnswerIn]
+
+
+class FocusAreaOut(BaseModel):
+    module_id: int
+    module_title: str
+    subject_name: str
+    correct: int
+    total: int
+    accuracy: int
 
 
 class DiagnosticResultOut(BaseModel):
     correct_count: int
     total: int
     assigned_level: Level
+    focus_areas: list[FocusAreaOut] = []
+    strengths: list[FocusAreaOut] = []
+    next_module_id: int | None = None
+
+
+# ---------------------------------------------------------------------------
+# Grade / trilha
+# ---------------------------------------------------------------------------
+
+
+class ModuleOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    summary: str
+    level: Level
+    order_index: int
+    objectives: list[str]
+    contents: list[str]
+    bncc_codes: list[str]
+    status: ModuleStatus
+    completion: int
+    performance: int | None = None
+    priority: int
+    next_step: str | None = None
+
+
+class SubjectOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    area: str
+    color: str
+    description: str
+    completion: int
+    performance: int | None = None
+    modules: list[ModuleOut]
+
+
+class RecommendationOut(BaseModel):
+    module_id: int
+    module_title: str
+    subject_name: str
+    subject_color: str
+    reason: str
+    next_step: str | None = None
+    completion: int
+    performance: int | None = None
+
+
+class StudyPlanOut(BaseModel):
+    level: Level
+    diagnostic_completed: bool
+    total_attempts: int
+    total_correct: int
+    accuracy: int
+    modules_completed: int
+    modules_total: int
+    overall_completion: int
+    current_module_id: int | None = None
+    recommendations: list[RecommendationOut]
+    weak_topics: list[str]
+    subjects: list[SubjectOut]
+
+
+# ---------------------------------------------------------------------------
+# Questionarios
+# ---------------------------------------------------------------------------
+
+
+class QuizOut(BaseModel):
+    """Questionario ja completo: todas as questoes vem nesta resposta, geradas
+    em uma unica chamada a API."""
+
+    id: int
+    kind: QuizKind
+    level: Level
+    module_id: int | None
+    module_title: str | None
+    subject_name: str | None
+    current_index: int
+    total: int
+    correct_count: int
+    completed: bool
+    questions: list[QuestionOut]
+
+
+class QuizStartIn(BaseModel):
+    module_id: int | None = None
+    kind: QuizKind = QuizKind.REFORCO
+    size: int | None = Field(default=None, ge=1, le=20)
+
+
+class QuizAnswerOut(BaseModel):
+    correct: bool
+    correct_alternative_id: str | None = None
+    explanation: str | None = None
+    attempt_id: int
+    answered_index: int
+    total: int
+    correct_count: int
+    finished: bool
+    # O feedback nao vem aqui: e transmitido em streaming por
+    # GET /feedback/{attempt_id}/stream, para a correcao aparecer na hora.
+    feedback_available: bool = False
+
+
+class QuizResultOut(BaseModel):
+    quiz_id: int
+    correct_count: int
+    total: int
+    accuracy: int
+    next_step: "NextStepOut"
+
+
+# ---------------------------------------------------------------------------
+# Mini aula
+# ---------------------------------------------------------------------------
+
+
+class LessonSectionOut(BaseModel):
+    heading: str
+    body: str
+
+
+class LessonExampleOut(BaseModel):
+    title: str
+    statement: str
+    solution: str
+
+
+class LessonOut(BaseModel):
+    id: int
+    module_id: int | None
+    topic: str
+    level: Level
+    title: str
+    intro: str
+    sections: list[LessonSectionOut]
+    key_concepts: list[str]
+    examples: list[LessonExampleOut]
+    diagram: str | None = None
+    summary: str
+    generated: bool
+
+
+class NextStepOut(BaseModel):
+    """Proxima etapa da trilha: questionario, mini aula ou modulo concluido."""
+
+    kind: str  # "quiz" | "lesson" | "module_completed" | "diagnostic"
+    module_id: int | None = None
+    module_title: str | None = None
+    subject_name: str | None = None
+    lesson_id: int | None = None
+    step_index: int = 0
+    total_steps: int = 0
+    message: str = ""
+
+
+QuizResultOut.model_rebuild()
+
+
+# ---------------------------------------------------------------------------
+# Tutor
+# ---------------------------------------------------------------------------
+
+
+class TutorAskIn(BaseModel):
+    question: str = Field(min_length=2, max_length=2000)
+    module_id: int | None = None
+    # None = o servidor decide pela heuristica de atualidade da pergunta.
+    use_search: bool | None = None
+
+
+class TutorSourceOut(BaseModel):
+    title: str
+    uri: str
+
+
+# ---------------------------------------------------------------------------
+# Exercicios avulsos (fluxo legado, mantido)
+# ---------------------------------------------------------------------------
 
 
 class FeedbackOut(BaseModel):
@@ -72,7 +278,9 @@ class AnswerResultOut(BaseModel):
     level: Level
     level_changed: bool
     needs_remediation: bool
+    attempt_id: int | None = None
     feedback: FeedbackOut | None = None
+    feedback_available: bool = False
 
 
 class ProgressOut(BaseModel):
@@ -82,6 +290,11 @@ class ProgressOut(BaseModel):
     needs_remediation: bool
     total_attempts: int
     total_correct: int
+
+
+# ---------------------------------------------------------------------------
+# Admin
+# ---------------------------------------------------------------------------
 
 
 class GroupStatsOut(BaseModel):
