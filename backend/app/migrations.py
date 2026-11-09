@@ -20,12 +20,13 @@ logger = logging.getLogger(__name__)
 
 # (tabela, coluna, DDL do tipo, SQL de backfill opcional)
 _ADDED_COLUMNS: list[tuple[str, str, str, str | None]] = [
-    ("users", "diagnostic_completed_at", "DATETIME", None),
+    # TIMESTAMP/TRUE em vez de DATETIME/1: valido tanto no SQLite quanto no Postgres.
+    ("users", "diagnostic_completed_at", "TIMESTAMP", None),
     ("questions", "subject_id", "INTEGER", None),
     ("questions", "module_id", "INTEGER", None),
     ("questions", "statement_hash", "VARCHAR(64)", None),
-    ("questions", "created_at", "DATETIME", "UPDATE questions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"),
-    ("questions", "active", "BOOLEAN", "UPDATE questions SET active = 1 WHERE active IS NULL"),
+    ("questions", "created_at", "TIMESTAMP", "UPDATE questions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"),
+    ("questions", "active", "BOOLEAN", "UPDATE questions SET active = TRUE WHERE active IS NULL"),
     ("attempts", "quiz_id", "INTEGER", None),
     ("attempts", "feedback_text", "TEXT", None),
 ]

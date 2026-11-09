@@ -1,8 +1,20 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_PROJECT_DIR = _BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # Ordem de prioridade (maior primeiro): variaveis de ambiente reais (Render)
+    # > backend/.env > .env.local da raiz (gerado por `neon env pull`/`neon deploy`,
+    # contem DATABASE_URL do Neon). Arquivos ausentes sao ignorados.
+    model_config = SettingsConfigDict(
+        env_file=(_PROJECT_DIR / ".env.local", _BACKEND_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
@@ -46,6 +58,14 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 120
 
     database_url: str = "sqlite:///./tcc.db"
+
+    # Origens autorizadas a chamar a API (CORS), separadas por virgula.
+    # Em producao, inclua a URL publica do frontend.
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip()]
 
     admin_email: str = "admin@tccadmin.com"
     admin_password: str = "admin123"

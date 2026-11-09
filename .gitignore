@@ -9,3 +9,8 @@ backend/**/__pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/tsconfig.tsbuildinfo
+.neon
+node_modules/
+.env.local
+.env
+.env.local
