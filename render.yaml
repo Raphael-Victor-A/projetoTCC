@@ -3,7 +3,7 @@
 # string em DATABASE_URL no painel do Render.
 services:
   - type: web
-    name: tcc-backend
+    name: tcc-mat-adaptativa-api
     runtime: python
     rootDir: backend
     plan: free
@@ -20,25 +20,27 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        sync: false
+        value: gemini-3.5-flash-lite
+      - key: ADMIN_EMAIL
+        value: admin@tccadmin.com
       - key: JWT_SECRET_KEY
         generateValue: true
-      - key: ADMIN_EMAIL
-        sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # URL publica do frontend. Se o Render acrescentar um sufixo ao nome
+      # (ex.: -ab12), corrija aqui e no VITE_API_BASE abaixo.
       - key: CORS_ORIGINS
-        sync: false
+        value: https://tcc-mat-adaptativa.onrender.com
 
   - type: web
-    name: tcc-frontend
+    name: tcc-mat-adaptativa
     runtime: static
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE
-        sync: false
+        value: https://tcc-mat-adaptativa-api.onrender.com
     routes:
       # SPA: qualquer rota (/dashboard, /admin...) devolve o index.html
       - type: rewrite
