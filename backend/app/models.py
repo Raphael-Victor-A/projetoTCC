@@ -329,3 +329,35 @@ class InteractionLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     attempt: Mapped["Attempt"] = relationship(back_populates="interaction_log")
+
+
+class HintRequest(Base):
+    """Dica pedida pelo aluno ANTES de responder (botao "Preciso de ajuda").
+
+    Serve a dois propositos:
+    - controle: limita quantas dicas o aluno recebe por questao e define qual
+      e a proxima (as dicas sao graduais: cada uma mais concreta que a anterior);
+    - experimento: o uso de dicas afeta o desempenho, entao fica registrado
+      para a analise (diretivo x socratico), com o mesmo tipo de telemetria do
+      feedback pos-erro (latencia, vazamento detectado, fallback).
+
+    Tabela nova: `Base.metadata.create_all` a cria sozinha no proximo start.
+    """
+
+    __tablename__ = "hint_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"), nullable=False, index=True)
+    quiz_id: Mapped[int | None] = mapped_column(ForeignKey("quizzes.id"), nullable=True, index=True)
+    # 1, 2, 3... ordem da dica para este aluno nesta questao.
+    hint_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[FeedbackGroup | None] = mapped_column(Enum(FeedbackGroup), nullable=True)
+    gemini_latency_ms: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    leak_detected: Mapped[bool] = mapped_column(Boolean, default=False)
+    fallback_used: Mapped[bool] = mapped_column(Boolean, default=False)
+    # True quando a dica veio de outro aluno (mesma questao, mesma ordem),
+    # sem nova chamada a API.
+    reused: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

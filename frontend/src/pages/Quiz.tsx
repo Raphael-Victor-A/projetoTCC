@@ -6,7 +6,16 @@ import QuestionCard from "../components/QuestionCard";
 import AiFeedback from "../components/AiFeedback";
 import { ProgressBar, StepperDots } from "../components/Progress";
 import { LoadingCard } from "../components/Loading";
-import { ArrowRightIcon, BookIcon, CheckIcon, LightbulbIcon, TrophyIcon } from "../components/Icons";
+import {
+  ArrowRightIcon,
+  BookIcon,
+  CheckIcon,
+  HelpCircleIcon,
+  LightbulbIcon,
+  TrophyIcon,
+} from "../components/Icons";
+import HintSheet from "../components/HintSheet";
+import PauseButton from "../components/PauseButton";
 
 /**
  * Questionario completo.
@@ -31,6 +40,7 @@ export default function Quiz() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -141,6 +151,7 @@ export default function Quiz() {
       setIndex(index + 1);
       setSelected(null);
       setAnswer(null);
+      setShowHelp(false);
       return;
     }
     setSubmitting(true);
@@ -161,9 +172,12 @@ export default function Quiz() {
           <p className="quiz-kind">{quiz.kind === "reforco" ? "Reforco" : "Pratica"}</p>
           {quiz.module_title && <p className="quiz-module">{quiz.module_title}</p>}
         </div>
-        <span className="quiz-counter">
-          {index + 1}/{quiz.questions.length}
-        </span>
+        <div className="quiz-header-actions">
+          <span className="quiz-counter">
+            {index + 1}/{quiz.questions.length}
+          </span>
+          <PauseButton message="As respostas que voce ja enviou ficam salvas. Quando voltar para este conteudo, voce continua de onde parou." />
+        </div>
       </div>
 
       <StepperDots total={quiz.questions.length} current={index} />
@@ -200,15 +214,29 @@ export default function Quiz() {
 
       <div className="button-row" style={{ marginTop: "1.5rem" }}>
         {!answer ? (
-          <button disabled={!selected || submitting} onClick={handleAnswer} style={{ flex: 1 }}>
-            {submitting ? "Corrigindo..." : "Responder"}
-          </button>
+          <>
+            <button disabled={!selected || submitting} onClick={handleAnswer} style={{ flex: 1 }}>
+              {submitting ? "Corrigindo..." : "Responder"}
+            </button>
+            <button type="button" className="help-fab" onClick={() => setShowHelp(true)}>
+              <HelpCircleIcon size={18} /> Preciso de ajuda
+            </button>
+          </>
         ) : (
           <button disabled={submitting} onClick={handleNext} style={{ flex: 1 }}>
             {isLast ? "Finalizar questionario" : "Proxima questao"} <ArrowRightIcon size={18} />
           </button>
         )}
       </div>
+
+      {showHelp && !answer && (
+        <HintSheet
+          key={question.id}
+          questionId={question.id}
+          quizId={quiz.id}
+          onClose={() => setShowHelp(false)}
+        />
+      )}
     </div>
   );
 }

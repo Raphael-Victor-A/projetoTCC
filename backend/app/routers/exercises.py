@@ -417,7 +417,7 @@ async def get_attempt_feedback(
     from app.ai.feedback import generate_feedback
 
     result = await generate_feedback(question, attempt.alternative_chosen, mode)
-    _persist_interaction_log(attempt.id, mode, result)
+    _persist_feedback(attempt.id, mode, result)
     return FeedbackOut(mode=mode, content=result.content)
 
 

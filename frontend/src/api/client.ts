@@ -433,6 +433,31 @@ export const submitExercise = (question_id: number, alternative_id: string) =>
 
 export const getProgress = () => request<ProgressOut>("/progress");
 
+// --------------------------------------------------------------------------
+// Dicas durante a questao ("Preciso de ajuda")
+// --------------------------------------------------------------------------
+
+export interface HintOut {
+  number: number;
+  content: string;
+}
+
+export interface HintsOut {
+  hints: HintOut[];
+  max_hints: number;
+  remaining: number;
+  degraded: boolean;
+}
+
+export const getHints = (questionId: number) =>
+  request<HintsOut>(`/questions/${questionId}/hints`);
+
+export const requestHint = (questionId: number, quizId?: number | null) =>
+  request<HintsOut>(`/questions/${questionId}/hint`, {
+    method: "POST",
+    body: JSON.stringify({ quiz_id: quizId ?? null }),
+  });
+
 export const getFeedback = (attemptId: number) => request<FeedbackOut>(`/feedback/${attemptId}`);
 
 export const streamFeedback = (

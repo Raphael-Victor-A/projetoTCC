@@ -81,6 +81,11 @@ async def start_quiz(
         current = study_plan.current_progress(db, current_user)
         module = db.get(Module, current.module_id) if current else None
 
+    # Aluno que pausou no meio volta para o mesmo questionario.
+    open_quiz = quiz_service.find_open_quiz(db, current_user, module, payload.kind)
+    if open_quiz is not None and open_quiz.question_ids:
+        return _quiz_out(db, open_quiz)
+
     # Um questionario = no maximo uma chamada de IA, entao o rate limit e
     # cobrado uma vez, aqui.
     enforce_gemini_rate_limit(current_user.id)

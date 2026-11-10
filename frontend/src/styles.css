@@ -457,6 +457,97 @@ a.link-button {
   line-height: 1.55;
 }
 
+.help-sheet {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* ---- Dicas do tutor ---- */
+
+.hint-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-hint);
+}
+
+.hint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.hint-item {
+  background: var(--color-hint-bg);
+  border: 1px solid var(--color-hint-border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+}
+
+.hint-item .feedback-text p {
+  color: var(--color-text);
+  margin: 0.25rem 0 0;
+}
+
+.hint-number {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-hint);
+}
+
+.hint-loading .feedback-placeholder {
+  margin: 0;
+}
+
+.hint-done {
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
+/* ---- Pausar atividade ---- */
+
+.activity-topbar,
+.quiz-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.activity-topbar {
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.activity-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.pause-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 0.35rem 0.8rem;
+}
+
+.pause-button:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
 /* ---- Empty state ---- */
 
 .empty-state {

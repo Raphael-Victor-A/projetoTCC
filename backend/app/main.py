@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.ai import cache, client
 from app.config import settings
-from app.routers import admin, auth, exercises, learning, quiz, tutor
+from app.routers import admin, auth, exercises, hints, learning, quiz, tutor
 from app.seed import seed_if_empty
 
 logging.basicConfig(
@@ -43,6 +43,7 @@ app.include_router(exercises.router)
 app.include_router(learning.router)
 app.include_router(quiz.router)
 app.include_router(tutor.router)
+app.include_router(hints.router)
 app.include_router(admin.router)
 
 

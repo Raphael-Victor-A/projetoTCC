@@ -7,6 +7,8 @@ import AiFeedback from "../components/AiFeedback";
 import { StepperDots } from "../components/Progress";
 import { LoadingCard } from "../components/Loading";
 import { CheckIcon, HelpCircleIcon, LightbulbIcon, SparkleIcon } from "../components/Icons";
+import HintSheet from "../components/HintSheet";
+import PauseButton from "../components/PauseButton";
 
 /**
  * Exercicios avulsos (pratica livre, fora da trilha).
@@ -31,6 +33,7 @@ export default function Exercise() {
     setError(null);
     setResult(null);
     setSelected(null);
+    setShowHelp(false);
     try {
       // Questao e progresso sao independentes: buscados em paralelo.
       const [q, p] = await Promise.all([api.getNextExercise(), api.getProgress()]);
@@ -86,6 +89,11 @@ export default function Exercise() {
 
   return (
     <div className="card">
+      <div className="activity-topbar">
+        <span className="activity-label">Pratica livre</span>
+        <PauseButton message="As respostas que voce ja enviou ficam salvas. Quando quiser continuar, e so abrir a Pratica livre de novo." />
+      </div>
+
       <StepperDots total={5} current={filledDots} />
 
       <QuestionCard
@@ -126,20 +134,16 @@ export default function Exercise() {
         <button disabled={(!result && !selected) || submitting} onClick={handleContinue} style={{ flex: 1 }}>
           {submitting ? "Corrigindo..." : result ? "Proxima questao" : "Responder"}
         </button>
-        <button type="button" className="help-fab" onClick={() => setShowHelp(true)}>
-          <HelpCircleIcon size={18} /> Preciso de ajuda
-        </button>
+        {/* Depois de responder, quem ajuda e o feedback do erro; a dica e para antes. */}
+        {!result && (
+          <button type="button" className="help-fab" onClick={() => setShowHelp(true)}>
+            <HelpCircleIcon size={18} /> Preciso de ajuda
+          </button>
+        )}
       </div>
 
-      {showHelp && (
-        <div className="help-overlay" onClick={() => setShowHelp(false)}>
-          <div className="help-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h3>Sem pressa!</h3>
-            <p>Leia a pergunta com calma e escolha a alternativa que fizer mais sentido pra voce.</p>
-            <p>Se errar, tudo bem! Eu vou te dar uma dica pra pensar de outro jeito, sem so entregar a resposta.</p>
-            <button onClick={() => setShowHelp(false)}>Entendi</button>
-          </div>
-        </div>
+      {showHelp && !result && (
+        <HintSheet key={question.id} questionId={question.id} onClose={() => setShowHelp(false)} />
       )}
     </div>
   );

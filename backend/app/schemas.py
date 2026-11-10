@@ -272,6 +272,28 @@ class FeedbackOut(BaseModel):
     content: str
 
 
+class HintIn(BaseModel):
+    # Opcional: liga a dica ao questionario em andamento (telemetria).
+    quiz_id: int | None = None
+
+
+class HintOut(BaseModel):
+    number: int
+    content: str
+
+
+class HintsOut(BaseModel):
+    """Sempre devolve TODAS as dicas que o aluno ja recebeu nesta questao,
+    para a tela se reconstruir mesmo depois de recarregar a pagina."""
+
+    hints: list[HintOut]
+    max_hints: int
+    remaining: int
+    # True quando a ultima dica e a de reserva por indisponibilidade da IA
+    # (nao foi contada; o aluno pode pedir de novo depois).
+    degraded: bool = False
+
+
 class AnswerResultOut(BaseModel):
     correct: bool
     correct_alternative_id: str | None = None

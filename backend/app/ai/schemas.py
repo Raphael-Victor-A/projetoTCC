@@ -17,6 +17,14 @@ class GeminiFeedback(BaseModel):
     contains_final_answer: bool
 
 
+class GeminiHint(BaseModel):
+    """Dica durante a questao. Mesmo esquema de auto-relato do feedback:
+    contains_final_answer e uma das duas camadas do filtro anti-vazamento."""
+
+    content: str
+    contains_final_answer: bool
+
+
 class GeneratedAlternative(BaseModel):
     id: str
     text: str

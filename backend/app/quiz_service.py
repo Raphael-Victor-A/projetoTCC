@@ -264,6 +264,26 @@ def quiz_questions(db: Session, quiz: Quiz) -> list[Question]:
     return [rows[qid] for qid in ids if qid in rows]
 
 
+def find_open_quiz(db: Session, user: User, module: Module | None, kind: QuizKind) -> Quiz | None:
+    """Questionario que o aluno comecou e nao terminou (pausou/saiu no meio).
+
+    Retomar este em vez de montar outro e o que torna o botao "Pausar" real:
+    as respostas ja dadas continuam valendo e o aluno volta na questao em que
+    parou, sem gastar outra chamada de IA.
+    """
+
+    query = db.query(Quiz).filter(
+        Quiz.user_id == user.id,
+        Quiz.kind == kind,
+        Quiz.completed_at.is_(None),
+    )
+    if module is not None:
+        query = query.filter(Quiz.module_id == module.id)
+    else:
+        query = query.filter(Quiz.module_id.is_(None))
+    return query.order_by(Quiz.created_at.desc()).first()
+
+
 def existing_answer(db: Session, quiz: Quiz, question: Question) -> Attempt | None:
     """Tentativa ja registrada para esta questao dentro deste questionario."""
 
