@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.ai import lessons as ai_lessons
+from app.config import settings
 from app.models import Lesson, LessonView, Module, User
 
 logger = logging.getLogger(__name__)
@@ -86,3 +89,77 @@ def mark_completed(db: Session, user: User, lesson: Lesson) -> LessonView:
     view.completed = True
     db.flush()
     return view
+
+
+# ---------------------------------------------------------------------------
+# Limite de reexplicacao ("explicar de outro jeito")
+# ---------------------------------------------------------------------------
+
+
+def get_view(db: Session, user: User, lesson: Lesson) -> LessonView | None:
+    return (
+        db.query(LessonView)
+        .filter(LessonView.user_id == user.id, LessonView.lesson_id == lesson.id)
+        .first()
+    )
+
+
+def _get_or_create_view(db: Session, user: User, lesson: Lesson) -> LessonView:
+    view = get_view(db, user, lesson)
+    if view is not None:
+        return view
+    view = LessonView(user_id=user.id, lesson_id=lesson.id)
+    db.add(view)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Outra requisicao do mesmo aluno criou a linha ao mesmo tempo
+        # (uq_user_lesson): usa a que ficou gravada.
+        db.rollback()
+        view = get_view(db, user, lesson)
+        assert view is not None
+    return view
+
+
+def reexplain_remaining(view: LessonView | None) -> int:
+    used = (view.reexplain_count or 0) if view is not None else 0
+    return max(0, settings.lesson_reexplain_limit - used)
+
+
+def reserve_reexplain(db: Session, user: User, lesson: Lesson) -> LessonView | None:
+    """Consome uma reexplicacao do aluno nesta aula, de forma atomica.
+
+    O incremento so acontece se ainda houver saldo (UPDATE ... WHERE
+    reexplain_count < limite), entao duas requisicoes simultaneas nao passam
+    as duas. Devolve a linha de LessonView, ou None se o limite ja foi usado.
+    """
+
+    view = _get_or_create_view(db, user, lesson)
+    count = func.coalesce(LessonView.reexplain_count, 0)
+    updated = (
+        db.query(LessonView)
+        .filter(LessonView.id == view.id, count < settings.lesson_reexplain_limit)
+        .update({LessonView.reexplain_count: count + 1}, synchronize_session=False)
+    )
+    db.commit()
+    if updated != 1:
+        return None
+    db.refresh(view)
+    return view
+
+
+def refund_reexplain(db: Session, view_id: int) -> None:
+    """Devolve a reexplicacao quando a IA falhou (o aluno nao recebeu nada)."""
+
+    count = func.coalesce(LessonView.reexplain_count, 0)
+    db.query(LessonView).filter(LessonView.id == view_id, count > 0).update(
+        {LessonView.reexplain_count: count - 1}, synchronize_session=False
+    )
+    db.commit()
+
+
+def save_reexplain_text(db: Session, view_id: int, text: str) -> None:
+    view = db.get(LessonView, view_id)
+    if view is not None:
+        view.reexplain_text = text
+        db.commit()

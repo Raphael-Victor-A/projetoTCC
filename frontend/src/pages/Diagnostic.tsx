@@ -132,6 +132,28 @@ export default function Diagnostic() {
           </>
         )}
 
+        {result.wrong_answers.length > 0 && (
+          <>
+            <p className="section-label">Questoes que voce errou</p>
+            <div className="focus-list">
+              {result.wrong_answers.map((item) => (
+                <div className="wrong-item" key={item.question_id}>
+                  <div className="focus-subject">
+                    {item.module_title || item.topic}
+                  </div>
+                  <p className="wrong-statement">{item.statement}</p>
+                  <p className="wrong-answer">
+                    <span className="wrong-label">Sua resposta:</span> {item.chosen_text}
+                  </p>
+                  <p className="right-answer">
+                    <span className="wrong-label">Resposta correta:</span> {item.correct_text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <button style={{ width: "100%", marginTop: "1.75rem" }} onClick={goToPlan}>
           Ver minha trilha <ArrowRightIcon size={18} />
         </button>

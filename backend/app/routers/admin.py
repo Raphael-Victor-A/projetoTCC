@@ -76,9 +76,9 @@ def set_student_group(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    """Sobrescreve manualmente o grupo (diretivo/socratico) sorteado no
-    cadastro do aluno — permite ao professor/pesquisador controlar a
-    mediacao aplicada a um aluno especifico a qualquer momento."""
+    """Altera o modo de mediacao (diretivo/socratico) de um aluno. Todo
+    aluno nasce socratico; esta e a UNICA rota que muda o modo, e so admin
+    tem acesso (get_current_admin devolve 403 para os demais)."""
     student = db.query(User).filter(User.id == student_id, User.is_admin.is_(False)).first()
     if student is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aluno nao encontrado")

@@ -71,9 +71,13 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # Grupo experimental sorteado no cadastro (mediacao diretiva vs socratica).
-    # Nulo para contas admin, que nao participam do experimento.
-    group: Mapped[FeedbackGroup | None] = mapped_column(Enum(FeedbackGroup), nullable=True)
+    # Modo de mediacao (diretiva vs socratica). Todo usuario novo nasce
+    # socratico, qualquer que seja a origem do cadastro; so um admin pode
+    # alterar depois (PATCH /admin/students/{id}/group). Continua nullable
+    # porque contas antigas de admin foram criadas com NULL.
+    group: Mapped[FeedbackGroup | None] = mapped_column(
+        Enum(FeedbackGroup), nullable=True, default=FeedbackGroup.SOCRATICO
+    )
 
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -286,6 +290,11 @@ class LessonView(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id"), nullable=False, index=True)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Quantas reexplicacoes ("explicar de outro jeito") o aluno ja usou nesta
+    # aula, limitado por settings.lesson_reexplain_limit. O texto gerado fica
+    # salvo para reaparecer se a pagina for recarregada sem nova chamada.
+    reexplain_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reexplain_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

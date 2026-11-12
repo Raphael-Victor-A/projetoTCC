@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../api/client";
 import type { LessonOut } from "../api/client";
-import Markdown from "../components/Markdown";
+import Markdown, { MathText } from "../components/Markdown";
 import { LoadingCard, TypingDots } from "../components/Loading";
 import { ArrowRightIcon, BookIcon, LayersIcon, RefreshIcon, SparkleIcon } from "../components/Icons";
 
@@ -11,7 +11,9 @@ import { ArrowRightIcon, BookIcon, LayersIcon, RefreshIcon, SparkleIcon } from "
  *
  * A aula estruturada vem do backend (gerada uma vez e reaproveitada). O botao
  * "explicar de outro jeito" abre um stream: o texto alternativo aparece
- * conforme e escrito, sem espera de bloco.
+ * conforme e escrito, sem espera de bloco. Esse pedido e limitado por aula
+ * (lesson.reexplain_limit, validado no backend); depois de usado, o botao
+ * fica desabilitado e a explicacao gerada continua visivel ao recarregar.
  */
 export default function Lesson() {
   const [params] = useSearchParams();
@@ -26,6 +28,7 @@ export default function Lesson() {
 
   const [altText, setAltText] = useState("");
   const [altStreaming, setAltStreaming] = useState(false);
+  const [reexplainRemaining, setReexplainRemaining] = useState(0);
   const controllerRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -36,6 +39,8 @@ export default function Lesson() {
         ? await api.getLesson(Number(lessonParam))
         : await api.getModuleLesson(Number(moduleParam));
       setLesson(data);
+      setReexplainRemaining(data.reexplain_remaining);
+      setAltText(data.reexplain_text ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel carregar a mini aula.");
     } finally {
@@ -49,27 +54,49 @@ export default function Lesson() {
   }, [load]);
 
   async function explainAgain() {
-    if (!lesson?.module_id) return;
+    if (!lesson || reexplainRemaining <= 0) return;
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
     setAltText("");
+    setError(null);
     setAltStreaming(true);
+    // Otimista: o backend ja reservou o uso ao aceitar o pedido.
+    setReexplainRemaining((n) => Math.max(0, n - 1));
+    let received = false;
+    let failed = false;
     try {
-      await api.streamModuleLesson(
-        lesson.module_id,
+      await api.streamLessonReexplain(
+        lesson.id,
         {
-          onChunk: (piece) => setAltText((prev) => prev + piece),
-          onError: (message) => setError(message),
+          onChunk: (piece) => {
+            received = true;
+            setAltText((prev) => prev + piece);
+          },
+          onError: (message) => {
+            failed = true;
+            setError(message);
+          },
         },
         controller.signal,
       );
     } catch (err) {
+      failed = true;
       if (!controller.signal.aborted) {
         setError(err instanceof Error ? err.message : "Nao foi possivel gerar a explicacao.");
       }
     } finally {
       if (!controller.signal.aborted) setAltStreaming(false);
+    }
+    // Sem nenhum trecho recebido o backend devolve o uso; reflete isso aqui.
+    // Mas se ele recusou por limite (409), mantem zerado.
+    if (failed && !received && !controller.signal.aborted) {
+      try {
+        const fresh = await api.getLesson(lesson.id);
+        setReexplainRemaining(fresh.reexplain_remaining);
+      } catch {
+        // mantem o valor otimista
+      }
     }
   }
 
@@ -118,7 +145,9 @@ export default function Lesson() {
         <BookIcon size={16} /> Mini aula
       </p>
       <h1>{lesson.title}</h1>
-      <p className="subtitle">{lesson.intro}</p>
+      <p className="subtitle">
+        <MathText text={lesson.intro} />
+      </p>
 
       {lesson.key_concepts.length > 0 && (
         <div className="concept-box">
@@ -127,7 +156,9 @@ export default function Lesson() {
           </p>
           <ul className="concept-list">
             {lesson.key_concepts.map((concept, i) => (
-              <li key={i}>{concept}</li>
+              <li key={i}>
+                <MathText text={concept} />
+              </li>
             ))}
           </ul>
         </div>
@@ -154,7 +185,9 @@ export default function Lesson() {
           <h2>Exemplos resolvidos</h2>
           {lesson.examples.map((example, i) => (
             <div className="example-box" key={i}>
-              <p className="example-title">{example.title}</p>
+              <p className="example-title">
+                <MathText text={example.title} />
+              </p>
               <Markdown text={example.statement} />
               <p className="example-solution-label">Resolucao</p>
               <Markdown text={example.solution} />
@@ -182,12 +215,16 @@ export default function Lesson() {
 
       {error && <p className="error">{error}</p>}
 
+      {reexplainRemaining <= 0 && !altStreaming && (
+        <p className="reexplain-note">Voce ja usou a reexplicacao desta mini aula.</p>
+      )}
+
       <div className="button-row" style={{ marginTop: "1.75rem" }}>
         <button
           type="button"
           className="secondary"
           onClick={explainAgain}
-          disabled={altStreaming || !lesson.module_id}
+          disabled={altStreaming || reexplainRemaining <= 0}
         >
           <RefreshIcon size={16} /> Explicar de outro jeito
         </button>

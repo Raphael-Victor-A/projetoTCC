@@ -79,12 +79,25 @@ class FocusAreaOut(BaseModel):
     accuracy: int
 
 
+class WrongAnswerOut(BaseModel):
+    """Questao que o aluno errou no diagnostico. So e devolvida DEPOIS da
+    submissao, quando o gabarito ja nao influencia mais nada."""
+
+    question_id: int
+    statement: str
+    chosen_text: str
+    correct_text: str
+    module_title: str
+    topic: str
+
+
 class DiagnosticResultOut(BaseModel):
     correct_count: int
     total: int
     assigned_level: Level
     focus_areas: list[FocusAreaOut] = []
     strengths: list[FocusAreaOut] = []
+    wrong_answers: list[WrongAnswerOut] = []
     next_module_id: int | None = None
 
 
@@ -227,6 +240,11 @@ class LessonOut(BaseModel):
     diagram: str | None = None
     summary: str
     generated: bool
+    # Limite de "explicar de outro jeito" por aluno nesta aula.
+    reexplain_limit: int = 0
+    reexplain_remaining: int = 0
+    # Reexplicacao ja gerada para este aluno (reexibida ao recarregar).
+    reexplain_text: str | None = None
 
 
 class NextStepOut(BaseModel):

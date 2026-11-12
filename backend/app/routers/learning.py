@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -11,11 +11,13 @@ from app import lesson_service, study_plan
 from app.ai import sse
 from app.ai.client import AIUnavailable
 from app.ai.lessons import stream_explanation
-from app.database import get_db
+from app.config import settings
+from app.database import SessionLocal, get_db
 from app.models import (
     MODULE_STEPS,
     Attempt,
     Lesson,
+    LessonView,
     Module,
     ModuleStatus,
     StepKind,
@@ -258,7 +260,7 @@ def select_module(
 # ---------------------------------------------------------------------------
 
 
-def _lesson_out(lesson: Lesson) -> LessonOut:
+def _lesson_out(lesson: Lesson, view: LessonView | None = None) -> LessonOut:
     return LessonOut(
         id=lesson.id,
         module_id=lesson.module_id,
@@ -272,6 +274,9 @@ def _lesson_out(lesson: Lesson) -> LessonOut:
         diagram=lesson.diagram,
         summary=lesson.summary,
         generated=lesson.generated,
+        reexplain_limit=settings.lesson_reexplain_limit,
+        reexplain_remaining=lesson_service.reexplain_remaining(view),
+        reexplain_text=view.reexplain_text if view is not None else None,
     )
 
 
@@ -291,7 +296,7 @@ async def get_module_lesson(
     lesson = await lesson_service.get_or_create_lesson(db, module, focus_errors=focus)
     db.commit()
     db.refresh(lesson)
-    return _lesson_out(lesson)
+    return _lesson_out(lesson, lesson_service.get_view(db, current_user, lesson))
 
 
 @router.get("/lessons/{lesson_id}", response_model=LessonOut)
@@ -303,7 +308,7 @@ def get_lesson(
     lesson = db.get(Lesson, lesson_id)
     if lesson is None:
         raise HTTPException(status_code=404, detail="Mini aula nao encontrada")
-    return _lesson_out(lesson)
+    return _lesson_out(lesson, lesson_service.get_view(db, current_user, lesson))
 
 
 @router.post("/lessons/{lesson_id}/complete", response_model=NextStepOut)
@@ -333,35 +338,70 @@ def complete_lesson(
     return next_step_payload(db, current_user)
 
 
-@router.get("/modules/{module_id}/lesson/stream")
-async def stream_module_lesson(
-    module_id: int,
+REEXPLAIN_LIMIT_DETAIL = "Voce ja usou a reexplicacao desta mini aula."
+
+
+@router.post("/lessons/{lesson_id}/reexplain")
+async def reexplain_lesson(
+    lesson_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Explicacao do modulo em streaming (markdown), para leitura imediata."""
+    """"Explicar de outro jeito": explicacao alternativa em streaming.
 
-    module = db.get(Module, module_id)
-    if module is None:
-        raise HTTPException(status_code=404, detail="Modulo nao encontrado")
+    Limitada a settings.lesson_reexplain_limit por aluno e por mini aula,
+    validado aqui (e nao so no front): recarregar a pagina ou chamar a rota
+    direto devolve 409 depois que o saldo acaba. Se a IA falhar, o uso e
+    devolvido; o texto gerado fica salvo e volta junto com a aula.
+    """
+
+    lesson = db.get(Lesson, lesson_id)
+    if lesson is None:
+        raise HTTPException(status_code=404, detail="Mini aula nao encontrada")
+
+    # Checagem barata antes do rate limit, para nao gastar cota de chamadas
+    # com quem ja nao tem saldo. A garantia de verdade e o UPDATE atomico em
+    # reserve_reexplain, logo abaixo.
+    if lesson_service.reexplain_remaining(lesson_service.get_view(db, current_user, lesson)) <= 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=REEXPLAIN_LIMIT_DETAIL)
 
     enforce_gemini_rate_limit(current_user.id)
-    subject = db.get(Subject, module.subject_id)
+
+    module = db.get(Module, lesson.module_id) if lesson.module_id is not None else None
+    subject = db.get(Subject, module.subject_id) if module is not None else None
     focus = study_plan.weak_topics(db, current_user, limit=5)
-    topic = module.title
-    level = module.level
+    topic = module.title if module is not None else lesson.topic
+    level = module.level if module is not None else lesson.level
     subject_name = subject.name if subject else "Matematica"
 
+    view = lesson_service.reserve_reexplain(db, current_user, lesson)
+    if view is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=REEXPLAIN_LIMIT_DETAIL)
+    view_id = view.id
+
     async def generate():
+        # A sessao da requisicao ja foi fechada quando o stream roda; as
+        # gravacoes daqui usam uma sessao propria.
+        pieces: list[str] = []
         yield sse.event("meta", {"topic": topic, "level": level.value})
         try:
             async for piece in stream_explanation(
                 topic=topic, level=level, subject=subject_name, focus_errors=focus
             ):
+                pieces.append(piece)
                 yield sse.chunk(piece)
         except AIUnavailable as exc:
-            logger.warning("Streaming de mini aula indisponivel: %s", exc)
-            yield sse.error("Nao foi possivel gerar a explicacao agora.")
+            logger.warning("Reexplicacao indisponivel: %s", exc)
+            yield sse.error("Nao foi possivel gerar a explicacao agora. Voce pode tentar de novo.")
+        finally:
+            # Nada chegou ao aluno (IA fora, erro ou desconexao antes do
+            # primeiro trecho): o uso e devolvido. Se algo chegou, conta como
+            # usado e o texto fica salvo.
+            with SessionLocal() as session:
+                if pieces:
+                    lesson_service.save_reexplain_text(session, view_id, "".join(pieces))
+                else:
+                    lesson_service.refund_reexplain(session, view_id)
         yield sse.done({"topic": topic})
 
     return StreamingResponse(generate(), media_type=sse.MEDIA_TYPE, headers=sse.SSE_HEADERS)

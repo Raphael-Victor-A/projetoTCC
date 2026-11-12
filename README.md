@@ -162,7 +162,8 @@ próximo questionário.
 
 ### 8. Streaming + Live Search
 
-- Streaming: feedback do erro, explicação alternativa da mini aula e respostas
+- Streaming: feedback do erro, explicação alternativa da mini aula (limitada a
+  `LESSON_REEXPLAIN_LIMIT` por aula, `POST /lessons/{id}/reexplain`) e respostas
   do tutor, todos por SSE. O front consome com `fetch` + reader
   (`api/client.ts::streamSSE`) porque `EventSource` não permite header
   `Authorization`.
@@ -256,7 +257,8 @@ para imports antigos, reexportando o pacote `app.ai`.
   alternativas com ids únicos, gabarito entre elas). Não há verificação
   matemática formal; o prompt pede autoconferência, o que reduz mas não elimina
   erro de gabarito.
-- Sem testes automatizados ainda. O fluxo completo (registro → diagnóstico →
+- Testes automatizados cobrem só parte do sistema (`backend/tests`; rodar com
+  `pip install -r requirements-dev.txt` e `python -m pytest`). O fluxo completo (registro → diagnóstico →
   trilha → questionário → mini aula → questionário) foi validado manualmente
   contra o backend rodando, incluindo o replay de feedback pelo cache; vale
   adicionar pytest cobrindo `adaptive_engine`, `study_plan.sample_diagnostic` e

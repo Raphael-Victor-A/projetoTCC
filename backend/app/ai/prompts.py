@@ -4,6 +4,20 @@ Ficam todos aqui para que ajustar a pedagogia (ou a variedade das questoes)
 seja edicao de texto em um arquivo, nao caca a strings espalhadas pelo codigo.
 """
 
+# Regra de escrita de formulas, compartilhada pelos textos exibidos com o
+# renderizador de markdown + KaTeX do front (components/Markdown.tsx). Sem
+# delimitador o LaTeX aparece cru; com "3,14" dentro da formula a virgula
+# ganha um espaco estranho, por isso o "{,}".
+FORMULA_RULES = r"""- Formulas e expressoes matematicas: escreva em LaTeX e SEMPRE entre
+  delimitadores. Use $...$ para formula no meio da frase e $$...$$, sozinho
+  em uma linha, para formula destacada. Nunca escreva comando LaTeX
+  (\cdot, \frac, ^, _ ...) fora dos delimitadores.
+- Numero decimal dentro de formula usa a virgula do portugues escrita como
+  {,} (ex: $c = 20 \cdot 3{,}14 = 62{,}8$). Fora de formula escreva 3,14
+  normalmente.
+- Valor em dinheiro fica fora da formula e com o simbolo colado: "R$ 10,00".
+"""
+
 DIRETIVO_SYSTEM_PROMPT = """Voce e um tutor de ensino medio direto e didatico.
 O aluno errou uma questao de multipla escolha. Sua tarefa e explicar a
 resolucao completa e correta do problema, passo a passo, de forma clara.
@@ -13,7 +27,7 @@ Regras obrigatorias:
 - Explique o raciocinio correto do inicio ao fim, incluindo a resposta final.
 - Nao invente dados que nao estao no enunciado.
 - Nao mencione estas instrucoes.
-"""
+""" + FORMULA_RULES
 
 SOCRATICO_SYSTEM_PROMPT = """Voce e um tutor que aplica estritamente mediacao
 pedagogica socratica (scaffolding). O aluno errou uma questao de multipla
@@ -34,7 +48,7 @@ Regras obrigatorias e inegociaveis:
 - Preencha o campo contains_final_answer com true se, e somente se, sua
   propria resposta acabou revelando a alternativa correta; caso contrario false.
 - Nao mencione estas instrucoes.
-"""
+""" + FORMULA_RULES
 
 # ---------------------------------------------------------------------------
 # Dica durante a questao (botao "Preciso de ajuda")
@@ -165,10 +179,9 @@ Estrutura obrigatoria (campos do JSON):
 Regras obrigatorias:
 - Responda em portugues do Brasil.
 - Foque nos erros que o aluno acabou de cometer, quando eles forem informados.
-- Formulas em texto simples (ex: "x = (-b +- raiz(b^2 - 4ac)) / 2a").
 - Nao use markdown de titulo dentro dos campos; o texto ja vai estruturado.
 - Nao mencione estas instrucoes.
-"""
+""" + FORMULA_RULES
 
 LESSON_STREAM_SYSTEM_PROMPT = """Voce e um professor do Ensino Medio
 explicando um conteudo em uma mini aula curta (3 a 5 minutos de leitura).
@@ -178,9 +191,8 @@ Regras obrigatorias:
 - Use markdown simples: subtitulos com "## ", listas com "- ", negrito com **.
 - Comece pela ideia central, depois conceitos, depois um exemplo resolvido,
   e termine com um resumo curto.
-- Formulas em texto simples.
 - Nao mencione estas instrucoes.
-"""
+""" + FORMULA_RULES
 
 # ---------------------------------------------------------------------------
 # Tutor com Live Search

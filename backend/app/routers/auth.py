@@ -1,5 +1,3 @@
-import random
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -17,11 +15,13 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email ja cadastrado")
 
-    # Sorteio 50/50 do grupo experimental (mediacao diretiva vs socratica).
-    # Feito no cadastro para manter grupos balanceados e cegos ao usuario.
-    group = random.choice([FeedbackGroup.DIRETIVO, FeedbackGroup.SOCRATICO])
-
-    user = User(email=payload.email, hashed_password=hash_password(payload.password), group=group)
+    # Todo usuario novo comeca no modo socratico. Trocar o modo e exclusivo
+    # do admin (PATCH /admin/students/{id}/group).
+    user = User(
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+        group=FeedbackGroup.SOCRATICO,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
