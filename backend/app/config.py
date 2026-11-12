@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # para que o primeiro acesso seja instantaneo.
     diagnostic_ai_augment: bool = False
 
+    # Quantas vezes cada aluno pode pedir "explicar de outro jeito" em uma
+    # mesma mini aula. Validado no backend (lesson_views.reexplain_count).
+    lesson_reexplain_limit: int = 1
+
     # Live Search: permite que o tutor consulte a busca do Google via
     # grounding do Gemini quando a pergunta pede informacao atual.
     live_search_enabled: bool = True

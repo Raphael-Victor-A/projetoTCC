@@ -15,7 +15,7 @@ from app.curriculum import sync_curriculum
 from app.database import Base, SessionLocal, engine
 from app.diagnostic_bank import DIAGNOSTIC_BANK
 from app.migrations import run_additive_migrations
-from app.models import Level, Module, Question, User
+from app.models import FeedbackGroup, Level, Module, Question, User
 from app.security import hash_password
 from app.text_utils import statement_hash
 
@@ -291,7 +291,7 @@ def seed_if_empty() -> None:
                 User(
                     email=settings.admin_email,
                     hashed_password=hash_password(settings.admin_password),
-                    group=None,
+                    group=FeedbackGroup.SOCRATICO,
                     is_admin=True,
                     diagnostic_completed=True,
                 )

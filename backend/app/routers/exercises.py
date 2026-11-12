@@ -34,6 +34,7 @@ from app.schemas import (
     FocusAreaOut,
     ProgressOut,
     QuestionOut,
+    WrongAnswerOut,
 )
 from app.security import get_current_user
 
@@ -185,12 +186,43 @@ def submit_diagnostic(
 
     current = study_plan.current_progress(db, current_user)
 
+    # Questoes erradas, na ordem em que foram apresentadas. Os dados vem do
+    # que acabou de ser gravado em `attempts` (alternative_chosen) e da
+    # propria questao; o texto e buscado pelo id da alternativa, entao o
+    # embaralhamento da exibicao nao interfere.
+    module_titles = {
+        m.id: m.title
+        for m in db.query(Module)
+        .filter(Module.id.in_({q.module_id for q, _ in results if q.module_id}))
+        .all()
+    }
+
+    def alt_text(question: Question, alternative_id: str) -> str:
+        for alt in question.alternatives or []:
+            if alt.get("id") == alternative_id:
+                return alt.get("text", "")
+        return ""
+
+    wrong_answers = [
+        WrongAnswerOut(
+            question_id=question.id,
+            statement=question.statement,
+            chosen_text=alt_text(question, answers.get(question.id, "")) or "(sem resposta)",
+            correct_text=alt_text(question, question.correct_alternative_id),
+            module_title=module_titles.get(question.module_id, "") if question.module_id else "",
+            topic=question.topic,
+        )
+        for question, is_correct in results
+        if not is_correct
+    ]
+
     return DiagnosticResultOut(
         correct_count=correct_count,
         total=total,
         assigned_level=current_user.level,
         focus_areas=focus_areas,
         strengths=strengths,
+        wrong_answers=wrong_answers,
         next_module_id=current.module_id if current else None,
     )
 

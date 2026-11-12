@@ -1309,6 +1309,39 @@ button.secondary:hover:not(:disabled) {
   color: var(--color-hint);
 }
 
+/* Questoes erradas no resultado do diagnostico */
+.wrong-item {
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.wrong-statement {
+  margin: 0.35rem 0 0.6rem;
+  font-weight: 600;
+}
+
+.wrong-answer,
+.right-answer {
+  margin: 0.25rem 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+}
+
+.wrong-answer {
+  background: var(--color-error-bg);
+}
+
+.right-answer {
+  background: var(--color-success-bg);
+}
+
+.wrong-label {
+  font-weight: 700;
+}
+
 /* ---- Questionario ---- */
 
 .quiz-header {
@@ -1592,4 +1625,24 @@ code {
   .chat-bubble {
     max-width: 100%;
   }
+}
+
+/* ---- Formulas (KaTeX) ---- */
+
+.md-math-block {
+  margin: 0.6rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.md-math .katex,
+.md-math-block .katex {
+  font-size: 1.08em;
+}
+
+.reexplain-note {
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
 }

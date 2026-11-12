@@ -76,6 +76,11 @@ class FeedbackResult:
 
 
 def _normalize(text: str) -> str:
+    # Comandos LaTeX (\text, \cdot, \frac...) saem antes da comparacao: sem
+    # isso "$62{,}8\text{ cm}$" viraria "62 8 text cm" e escaparia do filtro
+    # contra a alternativa "62,8 cm". Chaves, cifroes e a virgula em "{,}"
+    # ja somem na limpeza de pontuacao abaixo.
+    text = re.sub(r"\\[a-zA-Z]+", " ", text or "")
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     text = text.lower()
     return re.sub(r"[^a-z0-9]+", " ", text).strip()

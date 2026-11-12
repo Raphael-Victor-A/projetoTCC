@@ -48,12 +48,22 @@ export interface FocusArea {
   accuracy: number;
 }
 
+export interface WrongAnswer {
+  question_id: number;
+  statement: string;
+  chosen_text: string;
+  correct_text: string;
+  module_title: string;
+  topic: string;
+}
+
 export interface DiagnosticResult {
   correct_count: number;
   total: number;
   assigned_level: Level;
   focus_areas: FocusArea[];
   strengths: FocusArea[];
+  wrong_answers: WrongAnswer[];
   next_module_id: number | null;
 }
 
@@ -181,6 +191,9 @@ export interface LessonOut {
   diagram: string | null;
   summary: string;
   generated: boolean;
+  reexplain_limit: number;
+  reexplain_remaining: number;
+  reexplain_text: string | null;
 }
 
 export interface FeedbackOut {
@@ -391,11 +404,12 @@ export const getLesson = (lessonId: number) => request<LessonOut>(`/lessons/${le
 export const completeLesson = (lessonId: number) =>
   request<NextStep>(`/lessons/${lessonId}/complete`, { method: "POST" });
 
-export const streamModuleLesson = (
-  moduleId: number,
+/** "Explicar de outro jeito": limitado por aula no backend (409 sem saldo). */
+export const streamLessonReexplain = (
+  lessonId: number,
   handlers: StreamHandlers,
   signal?: AbortSignal,
-) => streamSSE(`/modules/${moduleId}/lesson/stream`, { method: "GET" }, handlers, signal);
+) => streamSSE(`/lessons/${lessonId}/reexplain`, { method: "POST" }, handlers, signal);
 
 // --------------------------------------------------------------------------
 // Questionarios
