@@ -1,0 +1,48 @@
+# Espelha o repositorio principal (Raphael-Victor-A/projetoTCC) no repositorio
+# que o Render observa (ViniHaas/projetoTCC).
+#
+# Resultado: qualquer push na master do repositorio principal - seja do
+# Raphael ou do Vinicius - chega ao repositorio do Render e o site atualiza.
+#
+# Requisito (configurado uma vez pelo dono do repositorio principal):
+#   Settings > Secrets and variables > Actions > New repository secret
+#   Nome: RENDER_MIRROR_TOKEN
+#   Valor: token "fine-grained" da conta ViniHaas com acesso SO ao repositorio
+#          ViniHaas/projetoTCC e permissoes Contents + Workflows (read/write).
+#
+# Se este job falhar com "rejected (fetch first / non-fast-forward)", alguem
+# enviou commits direto para ViniHaas/projetoTCC que nao estao aqui. Envie
+# sempre para o repositorio principal.
+
+name: Espelhar para o repositorio do Render
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: espelhar-para-render
+  cancel-in-progress: false
+
+jobs:
+  espelhar:
+    # So roda no repositorio principal (o arquivo tambem existe no espelho).
+    if: github.repository == 'Raphael-Victor-A/projetoTCC'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enviar master para ViniHaas/projetoTCC
+        env:
+          TOKEN: ${{ secrets.RENDER_MIRROR_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Secret RENDER_MIRROR_TOKEN nao configurado neste repositorio."
+            exit 1
+          fi
+          git push "https://x-access-token:${TOKEN}@github.com/ViniHaas/projetoTCC.git" HEAD:refs/heads/master
+          echo "Espelhado: $(git rev-parse --short HEAD) -> ViniHaas/projetoTCC (o Render publica a partir dele)."
