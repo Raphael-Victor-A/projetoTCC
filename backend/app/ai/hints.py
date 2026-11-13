@@ -66,6 +66,8 @@ class HintResult:
     # aluno, mas NAO conta como uma das dicas dele (assim ele pode pedir a dica
     # de verdade quando a API voltar).
     degraded: bool = False
+    # Texto original da IA, antes do filtro (vazio se a IA nao respondeu).
+    raw: str = ""
 
 
 def _numbers(text: str) -> set[str]:
@@ -157,6 +159,6 @@ async def generate_hint(question: Question, hint_number: int, previous: list[str
 
     if parsed.contains_final_answer or leak_detected(question, content):
         logger.info("Dica descartada pelo filtro anti-vazamento (questao %s)", question.id)
-        return HintResult(fallback_hint(question, hint_number), True, True, latency_ms)
+        return HintResult(fallback_hint(question, hint_number), True, True, latency_ms, raw=content)
 
-    return HintResult(content, False, False, latency_ms)
+    return HintResult(content, False, False, latency_ms, raw=content)

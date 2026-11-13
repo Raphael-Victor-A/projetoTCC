@@ -2,6 +2,21 @@ import { useEffect, useState } from "react";
 import * as api from "../api/client";
 import type { AdminStats, FeedbackGroup, StudentOut } from "../api/client";
 import { UserIcon } from "../components/Icons";
+import EvaluationPanel from "../components/admin/EvaluationPanel";
+import ReviewPanel from "../components/admin/ReviewPanel";
+
+type AdminTab = "alunos" | "avaliacao" | "revisao";
+
+const TABS: { id: AdminTab; label: string }[] = [
+  { id: "alunos", label: "Alunos" },
+  { id: "avaliacao", label: "Avaliacao da IA" },
+  { id: "revisao", label: "Revisao manual" },
+];
+
+function readTab(): AdminTab {
+  const h = window.location.hash.replace("#", "");
+  return TABS.some((t) => t.id === h) ? (h as AdminTab) : "alunos";
+}
 
 const GROUP_LABEL: Record<FeedbackGroup, string> = {
   diretivo: "Explicacao direta",
@@ -13,6 +28,12 @@ export default function Admin() {
   const [students, setStudents] = useState<StudentOut[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [tab, setTab] = useState<AdminTab>(readTab);
+
+  function changeTab(t: AdminTab) {
+    setTab(t);
+    if (window.location.hash !== `#${t}`) window.location.hash = t;
+  }
 
   function reload() {
     Promise.all([api.getAdminStats(), api.getStudents()])
@@ -25,6 +46,9 @@ export default function Admin() {
 
   useEffect(() => {
     reload();
+    const onHash = () => setTab(readTab());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   async function handleGroupChange(id: number, group: FeedbackGroup) {
@@ -48,6 +72,26 @@ export default function Admin() {
       <h2>Painel do professor</h2>
       <p className="subtitle">Acompanhe como seus {stats.total_students} alunos estao indo.</p>
 
+      <div className="tabs admin-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`tab${tab === t.id ? " active" : ""}`}
+            onClick={() => changeTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "avaliacao" && <EvaluationPanel />}
+      {tab === "revisao" && <ReviewPanel />}
+
+      {tab === "alunos" && (
+      <>
       <div className="groups-grid">
         {stats.groups.map((g) => (
           <div key={g.group} className="group-panel">
@@ -141,6 +185,8 @@ export default function Admin() {
           </div>
         ))}
       </div>
+      </>
+      )}
     </div>
   );
 }

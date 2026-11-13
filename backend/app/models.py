@@ -374,4 +374,35 @@ class HintRequest(Base):
     # True quando a dica veio de outro aluno (mesma questao, mesma ordem),
     # sem nova chamada a API.
     reused: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Texto original da IA, ANTES do filtro anti-vazamento. Quando o filtro
+    # barra a dica, `content` vira a dica de reserva; sem guardar o original
+    # nao daria para conferir depois (painel de avaliacao) se ele acertou.
+    raw_output: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ReviewLabel(Base):
+    """Marcacao manual feita pelo admin no painel de avaliacao.
+
+    - item_type "feedback" (InteractionLog) ou "hint" (HintRequest):
+      verdict "vazou" / "nao_vazou" — o texto ORIGINAL da IA entregava a
+      resposta? Comparado com a decisao do filtro, mede precisao e revocacao.
+    - item_type "question" (Question gerada pela IA):
+      verdict "correto" / "errado" / "ambiguo" — o gabarito confere?
+
+    Tabela nova: `Base.metadata.create_all` a cria sozinha no proximo start.
+    """
+
+    __tablename__ = "review_labels"
+    __table_args__ = (UniqueConstraint("item_type", "item_id", name="uq_review_item"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    item_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    item_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    verdict: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

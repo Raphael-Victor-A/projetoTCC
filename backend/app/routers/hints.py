@@ -112,6 +112,7 @@ async def request_hint(
 
     if shared is not None:
         content, latency, leak, fallback, reused = shared.content, 0.0, False, False, True
+        raw = None
     else:
         enforce_gemini_rate_limit(current_user.id)
         result = await ai_hints.generate_hint(question, hint_number, [r.content for r in rows])
@@ -121,6 +122,7 @@ async def request_hint(
             return _out(rows, HintOut(number=hint_number, content=result.content), degraded=True)
         content, latency = result.content, result.latency_ms
         leak, fallback, reused = result.leak_detected, result.fallback_used, False
+        raw = result.raw or None
 
     row = HintRequest(
         user_id=current_user.id,
@@ -133,6 +135,7 @@ async def request_hint(
         leak_detected=leak,
         fallback_used=fallback,
         reused=reused,
+        raw_output=raw,
     )
     db.add(row)
     db.commit()

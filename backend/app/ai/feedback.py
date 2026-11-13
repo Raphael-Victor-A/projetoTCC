@@ -157,7 +157,8 @@ async def generate_feedback(
         logger.warning("Feedback %s indisponivel: %s", mode.value, exc)
         return FeedbackResult(_fallback_for(exc), False, True, "", 0.0, degraded=True)
 
-    raw_excerpt = (parsed.content or "")[:500]
+    # Guardado inteiro (ate 4000) para a revisao manual no painel de avaliacao.
+    raw_excerpt = (parsed.content or "")[:4000]
     content = parsed.content or ""
     leak_detected = False
     fallback_used = False

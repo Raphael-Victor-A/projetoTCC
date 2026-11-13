@@ -558,3 +558,111 @@ export const setStudentGroup = (id: number, group: FeedbackGroup) =>
     method: "PATCH",
     body: JSON.stringify({ group }),
   });
+
+// --------------------------------------------------------------------------
+// Avaliacao da IA (admin)
+// --------------------------------------------------------------------------
+
+export interface LatencyStats {
+  n: number;
+  avg_ms: number;
+  p50_ms: number;
+  p95_ms: number;
+}
+
+export interface ChannelStats {
+  total: number;
+  ai_calls: number;
+  unavailable: number;
+  filtered: number;
+  filter_scope: number;
+  filtered_rate: number;
+  reused: number;
+  latency: LatencyStats;
+}
+
+export interface Confusion {
+  reviewed: number;
+  reviewable: number;
+  flagged_total: number;
+  passed_total: number;
+  tp: number;
+  fp: number;
+  fn: number;
+  tn: number;
+  precision: number | null;
+  escape_rate: number | null;
+  recall_estimate: number | null;
+  leaks_reaching_students_estimate: number | null;
+}
+
+export interface Evaluation {
+  since: string | null;
+  feedback: ChannelStats;
+  hints: ChannelStats;
+  feedback_by_mode: Record<string, number>;
+  content: {
+    generated_questions: number;
+    bank_questions: number;
+    retired_questions: number;
+    lessons_generated: number;
+    lesson_views: number;
+    lesson_calls_saved: number;
+  };
+  daily: { date: string; feedback: number; hints: number }[];
+  leak_review: { feedback: Confusion; hint: Confusion; total: Confusion };
+  question_review: {
+    generated_total: number;
+    reviewed: number;
+    correct: number;
+    wrong: number;
+    ambiguous: number;
+    wrong_rate: number | null;
+  };
+}
+
+export type ReviewKind = "feedback" | "hint" | "question";
+export type ReviewFlag = "all" | "flagged" | "passed";
+
+export interface ReviewItem {
+  kind: ReviewKind;
+  id: number;
+  created_at: string;
+  question: {
+    id: number;
+    topic: string;
+    module_title: string | null;
+    statement: string;
+    alternatives: Alternative[];
+    correct_alternative_id: string;
+    explanation: string;
+    active: boolean;
+  };
+  ai_text: string | null;
+  shown_text: string | null;
+  filter_flagged: boolean | null;
+  mode: string | null;
+  hint_number: number | null;
+  chosen_alternative_id: string | null;
+  verdict: string | null;
+  note: string | null;
+}
+
+export const getEvaluation = () => request<Evaluation>("/admin/evaluation");
+
+export const getReviewItems = (
+  kind: ReviewKind,
+  opts: { status: "pending" | "done"; flag: ReviewFlag; limit?: number; offset?: number },
+) =>
+  request<{ items: ReviewItem[]; total: number }>(
+    `/admin/evaluation/review/${kind}?status=${opts.status}&flag=${opts.flag}&limit=${opts.limit ?? 10}&offset=${opts.offset ?? 0}`,
+  );
+
+export const saveReview = (kind: ReviewKind, id: number, verdict: string, note?: string) =>
+  request<void>(`/admin/evaluation/review/${kind}/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ verdict, note: note || null }),
+  });
+
+export const deleteReview = (kind: ReviewKind, id: number) =>
+  request<void>(`/admin/evaluation/review/${kind}/${id}`, { method: "DELETE" });
