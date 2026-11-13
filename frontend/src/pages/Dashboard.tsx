@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as api from "../api/client";
-import type { NextStep, StudyPlan, SubjectOut } from "../api/client";
+import type { NextStep, StudyPlan } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { ProgressBar, ProgressRing } from "../components/Progress";
 import { Skeleton } from "../components/Loading";
+import Trail, { trailOrder } from "../components/Trail";
+import type { TrailModule } from "../components/Trail";
 import {
   ArrowRightIcon,
+  BarsIcon,
   BookIcon,
   ChatIcon,
-  CheckIcon,
   ClockIcon,
   LayersIcon,
   PlayIcon,
@@ -22,12 +23,6 @@ const LEVELS = [
   { key: "intermediario", label: "Intermediario" },
   { key: "avancado", label: "Avancado" },
 ];
-
-const STATUS_LABEL: Record<string, string> = {
-  nao_iniciado: "Nao iniciado",
-  em_andamento: "Em andamento",
-  concluido: "Concluido",
-};
 
 function studyTimeKey() {
   return `tempo-estudo-${new Date().toISOString().slice(0, 10)}`;
@@ -52,20 +47,21 @@ function useStudyMinutesToday(): number {
 }
 
 /**
- * Painel do aluno.
+ * Painel do aluno, organizado como trilha.
  *
- * Responde a quatro perguntas, nesta ordem: o que eu faco agora, como estou
- * indo, o que devo estudar em seguida e como esta cada disciplina da grade.
+ * No centro, o caminho de modulos e etapas (o que fazer e o que ja foi
+ * feito). Ao lado, o resumo: proximo passo, nivel, o que reforcar e
+ * conquistas. No celular o painel desce para baixo da trilha.
  */
 export default function Dashboard() {
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [nextStep, setNextStep] = useState<NextStep | null>(null);
-  const [expanded, setExpanded] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const studyMinutes = useStudyMinutesToday();
+  const currentRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -74,9 +70,6 @@ export default function Dashboard() {
       const [planData, stepData] = await Promise.all([api.getStudyPlan(), api.getNextStep()]);
       setPlan(planData);
       setNextStep(stepData);
-      // Com uma unica disciplina, esconder os modulos atras de um clique so
-      // adiciona atrito: a grade ja abre aberta.
-      if (planData.subjects.length === 1) setExpanded(planData.subjects[0].id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado");
     }
@@ -85,6 +78,17 @@ export default function Dashboard() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const currentModuleId = nextStep?.module_id ?? plan?.current_module_id ?? null;
+
+  const modules: TrailModule[] = useMemo(() => {
+    if (!plan) return [];
+    const reasons = new Map(plan.recommendations.map((r) => [r.module_id, r.reason]));
+    const all = plan.subjects.flatMap((s) =>
+      s.modules.map((m) => ({ ...m, reason: reasons.get(m.id) })),
+    );
+    return trailOrder(all, currentModuleId);
+  }, [plan, currentModuleId]);
 
   function navigateToStep(step: NextStep) {
     if (step.kind === "quiz" && step.module_id) navigate(`/quiz?module=${step.module_id}`);
@@ -103,6 +107,14 @@ export default function Dashboard() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function scrollToCurrent() {
+    const node = currentRef.current;
+    if (!node) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    node.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    node.querySelector<HTMLButtonElement>(".trail-node")?.focus({ preventScroll: true });
   }
 
   if (error && !plan) return <div className="card error">{error}</div>;
@@ -124,209 +136,142 @@ export default function Dashboard() {
     { label: "10 acertos", unlocked: plan.total_correct >= 10 },
   ];
 
+  const continueLabel =
+    nextStep?.kind === "lesson" ? "Ver mini aula" : nextStep?.kind === "quiz" ? "Comecar" : "Continuar";
+
   return (
-    <div className="dashboard">
-      <div className="card">
-        <p className="greeting">Ola, {name}!</p>
-        <p className="greeting-sub">Sua trilha esta montada a partir do seu diagnostico.</p>
-
-        {nextStep && (
-          <div className="next-step-card">
-            <div className="next-step-icon">
-              {nextStep.kind === "lesson" ? <BookIcon size={22} /> : <PlayIcon size={22} />}
-            </div>
-            <div className="next-step-body">
-              <p className="next-step-label">Proximo passo</p>
-              <p className="next-step-title">
-                {nextStep.module_title ?? "Continue estudando"}
-                {nextStep.subject_name ? ` — ${nextStep.subject_name}` : ""}
-              </p>
-              <p className="next-step-message">{nextStep.message}</p>
-            </div>
-            <button onClick={() => navigateToStep(nextStep)} disabled={busy}>
-              {nextStep.kind === "lesson" ? "Ver mini aula" : "Comecar"} <ArrowRightIcon size={18} />
-            </button>
-          </div>
-        )}
-
-        <p className="section-label">Seu nivel atual</p>
-        <div className="level-track">
-          {LEVELS.map((l, i) => (
-            <div
-              key={l.key}
-              className={`level-step ${i < levelIndex ? "done" : i === levelIndex ? "current" : ""}`}
-            >
-              <div className="level-step-dot">{i + 1}</div>
-              <div className="level-step-label">{l.label}</div>
-            </div>
-          ))}
+    <div className="trail-page">
+      <div className="trail-hello">
+        <div>
+          <p className="greeting">Ola, {name}!</p>
+          <p className="greeting-sub">Sua trilha foi montada a partir do seu diagnostico.</p>
         </div>
-
-        <div className="dashboard-grid">
-          <div className="summary-card">
-            <ProgressRing value={plan.overall_completion} />
-            <div>
-              <div className="summary-value">
-                {plan.modules_completed}/{plan.modules_total}
-              </div>
-              <div className="summary-label">Modulos concluidos</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">
-              <TargetIcon />
-            </div>
-            <div>
-              <div className="summary-value">{plan.accuracy}%</div>
-              <div className="summary-label">Voce acerta</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">
-              <ClockIcon />
-            </div>
-            <div>
-              <div className="summary-value">{studyMinutes} min</div>
-              <div className="summary-label">Estudados hoje</div>
-            </div>
-          </div>
+        <div className="trail-stats" aria-label="Seu resumo">
+          <span className="trail-stat level" title="Seu nivel">
+            <BarsIcon size={18} /> {LEVELS[levelIndex]?.label ?? plan.level}
+          </span>
+          <span className="trail-stat acc" title="Voce acerta">
+            <TargetIcon size={18} /> {plan.accuracy}%
+          </span>
+          <span className="trail-stat time" title="Estudado hoje">
+            <ClockIcon size={18} /> {studyMinutes} <small>min</small>
+          </span>
+          <span className="trail-stat mods" title="Modulos concluidos">
+            <LayersIcon size={18} /> {plan.modules_completed}
+            <small>/{plan.modules_total}</small>
+          </span>
         </div>
       </div>
 
-      {plan.recommendations.length > 0 && (
-        <div className="card">
-          <p className="section-label">
-            <TargetIcon size={16} /> Recomendado para voce
-          </p>
-          <div className="recommendation-list">
-            {plan.recommendations.map((rec) => (
-              <div className="recommendation" key={rec.module_id}>
-                <span className="subject-dot" style={{ background: rec.subject_color }} />
-                <div className="recommendation-body">
-                  <div className="recommendation-title">{rec.module_title}</div>
-                  <div className="recommendation-subject">{rec.subject_name}</div>
-                  <div className="recommendation-reason">{rec.reason}</div>
-                  <ProgressBar value={rec.completion} color={rec.subject_color} />
-                </div>
-                <button
-                  className="secondary"
-                  onClick={() => studyModule(rec.module_id)}
-                  disabled={busy}
-                >
-                  Estudar
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {plan.weak_topics.length > 0 && (
-        <div className="card">
-          <p className="section-label">Conteudos para reforcar</p>
-          <div className="badges-row">
-            {plan.weak_topics.map((topic) => (
-              <span className="topic-chip" key={topic}>
-                {topic}
-              </span>
-            ))}
-          </div>
-          <button className="secondary" onClick={() => navigate("/tutor")} style={{ marginTop: "1rem" }}>
-            <ChatIcon size={16} /> Tirar duvida com o tutor
-          </button>
-        </div>
-      )}
-
-      <div className="card">
-        <p className="section-label">
-          <LayersIcon size={16} /> Sua grade de estudos
+      {error && (
+        <p className="error" role="alert">
+          {error}
         </p>
-        <div className="subject-list">
-          {plan.subjects.map((subject) => (
-            <SubjectRow
-              key={subject.id}
-              subject={subject}
-              expanded={expanded === subject.id}
-              onToggle={() => setExpanded(expanded === subject.id ? null : subject.id)}
-              onStudy={studyModule}
-              busy={busy}
-            />
-          ))}
-        </div>
-      </div>
+      )}
 
-      <div className="card">
-        <p className="section-label">Suas conquistas</p>
-        <div className="badges-row">
-          {achievements.map((a) => (
-            <span key={a.label} className={`achievement-badge ${a.unlocked ? "" : "locked"}`}>
-              <TrophyIcon size={16} /> {a.label}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+      <div className="trail-layout">
+        <Trail
+          modules={modules}
+          currentModuleId={currentModuleId}
+          nextStep={nextStep}
+          busy={busy}
+          onContinue={() => (nextStep ? navigateToStep(nextStep) : undefined)}
+          onStudyModule={studyModule}
+          currentRef={currentRef}
+        />
 
-function SubjectRow({
-  subject,
-  expanded,
-  onToggle,
-  onStudy,
-  busy,
-}: {
-  subject: SubjectOut;
-  expanded: boolean;
-  onToggle: () => void;
-  onStudy: (moduleId: number) => void;
-  busy: boolean;
-}) {
-  return (
-    <div className="subject-row">
-      <button className="subject-header" onClick={onToggle} aria-expanded={expanded}>
-        <span className="subject-dot" style={{ background: subject.color }} />
-        <span className="subject-name">{subject.name}</span>
-        <span className="subject-meta">
-          {subject.modules.filter((m) => m.status === "concluido").length}/{subject.modules.length}{" "}
-          modulos
-        </span>
-        <span className={`chevron ${expanded ? "open" : ""}`} aria-hidden="true" />
-      </button>
-      <ProgressBar value={subject.completion} color={subject.color} />
-
-      {expanded && (
-        <div className="module-list">
-          {subject.modules.map((module) => (
-            <div className="module-row" key={module.id}>
-              <div className="module-info">
-                <div className="module-title">
-                  {module.status === "concluido" && <CheckIcon size={15} />} {module.title}
-                </div>
-                <div className="module-meta">
-                  {STATUS_LABEL[module.status]} · {module.completion}% concluido
-                  {module.performance !== null ? ` · ${module.performance}% de acerto` : ""}
-                </div>
-                <details className="module-details">
-                  <summary>Objetivos e conteudos</summary>
-                  <p className="module-summary">{module.summary}</p>
-                  <ul>
-                    {module.objectives.map((objective, i) => (
-                      <li key={`o-${i}`}>{objective}</li>
-                    ))}
-                  </ul>
-                  <p className="module-contents">{module.contents.join(" · ")}</p>
-                  {module.bncc_codes.length > 0 && (
-                    <p className="module-bncc">BNCC: {module.bncc_codes.join(", ")}</p>
-                  )}
-                </details>
+        <aside className="trail-side">
+          {nextStep && (
+            <div className="trail-panel trail-next">
+              <h2>Proximo passo</h2>
+              <div className="trail-next-head">
+                <span className="trail-next-icon">
+                  {nextStep.kind === "lesson" ? <BookIcon size={20} /> : <PlayIcon size={20} />}
+                </span>
+                <p className="trail-next-title">{nextStep.module_title ?? "Continue estudando"}</p>
               </div>
-              <button className="secondary" onClick={() => onStudy(module.id)} disabled={busy}>
-                {module.status === "nao_iniciado" ? "Comecar" : "Continuar"}
+              <p className="trail-next-sub">{nextStep.message}</p>
+              <button onClick={() => navigateToStep(nextStep)} disabled={busy} style={{ width: "100%" }}>
+                {continueLabel} <ArrowRightIcon size={18} />
               </button>
             </div>
-          ))}
-        </div>
+          )}
+
+          <div className="trail-panel">
+            <h2>Seu nivel</h2>
+            <div className="trail-levels">
+              {LEVELS.map((l, i) => (
+                <div
+                  key={l.key}
+                  className={`trail-level ${i < levelIndex ? "done" : i === levelIndex ? "now" : ""}`}
+                >
+                  <i />
+                  {l.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {plan.weak_topics.length > 0 && (
+            <div className="trail-panel">
+              <h2>Para reforcar</h2>
+              <div className="badges-row">
+                {plan.weak_topics.map((topic) => (
+                  <span className="topic-chip" key={topic}>
+                    {topic}
+                  </span>
+                ))}
+              </div>
+              <button className="secondary" onClick={() => navigate("/tutor")} style={{ marginTop: "1rem" }}>
+                <ChatIcon size={16} /> Tirar duvida com o tutor
+              </button>
+            </div>
+          )}
+
+          <div className="trail-panel">
+            <h2>Conquistas</h2>
+            <div className="trail-achs">
+              {achievements.map((a) => (
+                <div key={a.label} className={`trail-ach ${a.unlocked ? "on" : ""}`}>
+                  <b>
+                    <TrophyIcon size={22} />
+                  </b>
+                  {a.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="trail-panel">
+            <h2>Como ler a trilha</h2>
+            <div className="trail-legend">
+              <div>
+                <i style={{ background: "var(--unit-1)" }} /> Etapa feita (cor do modulo)
+              </div>
+              <div>
+                <i style={{ background: "var(--color-success)" }} /> Selo verde: 70% ou mais de acerto
+              </div>
+              <div>
+                <i style={{ background: "var(--color-hint)" }} /> Selo laranja: vale revisar
+              </div>
+              <div>
+                <i style={{ background: "var(--trail-idle)" }} /> Ainda nao chegou la
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {currentModuleId !== null && (
+        <button
+          type="button"
+          className="trail-fab"
+          onClick={scrollToCurrent}
+          aria-label="Ir para a etapa atual"
+          title="Ir para a etapa atual"
+        >
+          <TargetIcon size={24} />
+        </button>
       )}
     </div>
   );

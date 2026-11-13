@@ -26,6 +26,7 @@ from app.models import (
     Module,
     ModuleStatus,
     Question,
+    Quiz,
     StepKind,
     Subject,
     User,
@@ -412,6 +413,65 @@ def weak_topics(db: Session, user: User, limit: int = 8) -> list[str]:
     return topics
 
 
+def _module_quiz_summaries(
+    db: Session, user: User, progresses: dict[int, UserModuleProgress]
+) -> dict[int, list[dict]]:
+    """Questionarios concluidos de cada modulo, na ordem em que foram feitos.
+
+    So a passada atual pelo modulo conta: se o aluno reabriu um modulo para
+    revisao (step_index volta a 0), os questionarios antigos nao aparecem.
+    Por isso, para cada modulo, pega os N mais recentes, onde N e quantas
+    etapas "quiz" ja ficaram para tras em MODULE_STEPS. Duas consultas no
+    total, nao uma por modulo.
+    """
+
+    quizzes_done: dict[int, int] = {}
+    for module_id, progress in progresses.items():
+        passed = MODULE_STEPS[: min(progress.step_index, len(MODULE_STEPS))]
+        count = sum(1 for s in passed if s == StepKind.QUIZ)
+        if count:
+            quizzes_done[module_id] = count
+    if not quizzes_done:
+        return {}
+
+    rows = (
+        db.query(Quiz)
+        .filter(
+            Quiz.user_id == user.id,
+            Quiz.module_id.in_(list(quizzes_done)),
+            Quiz.completed_at.isnot(None),
+        )
+        .order_by(Quiz.completed_at.asc(), Quiz.id.asc())
+        .all()
+    )
+    by_module: dict[int, list[Quiz]] = defaultdict(list)
+    for quiz in rows:
+        by_module[quiz.module_id].append(quiz)
+    selected = {
+        module_id: by_module.get(module_id, [])[-count:]
+        for module_id, count in quizzes_done.items()
+    }
+
+    quiz_ids = [q.id for quizzes in selected.values() for q in quizzes]
+    answers: dict[tuple[int, int], bool] = {
+        (a.quiz_id, a.question_id): a.correct
+        for a in db.query(Attempt).filter(Attempt.quiz_id.in_(quiz_ids)).all()
+    } if quiz_ids else {}
+
+    return {
+        module_id: [
+            {
+                "quiz_id": q.id,
+                "correct_count": q.correct_count,
+                "total": len(q.question_ids or []),
+                "results": [answers.get((q.id, qid)) for qid in (q.question_ids or [])],
+            }
+            for q in quizzes
+        ]
+        for module_id, quizzes in selected.items()
+    }
+
+
 def subject_overview(db: Session, user: User) -> list[dict]:
     """Resumo por disciplina para o dashboard (uma consulta por tabela)."""
 
@@ -425,6 +485,8 @@ def subject_overview(db: Session, user: User) -> list[dict]:
     modules_by_subject: dict[int, list[Module]] = defaultdict(list)
     for module in modules:
         modules_by_subject[module.subject_id].append(module)
+
+    quiz_summaries = _module_quiz_summaries(db, user, progresses)
 
     overview: list[dict] = []
     for subject in subjects:
@@ -458,6 +520,9 @@ def subject_overview(db: Session, user: User) -> list[dict]:
                     "performance": performance,
                     "priority": progress.priority if progress else 999,
                     "next_step": (next_step(progress).value if progress and next_step(progress) else None),
+                    "step_index": progress.step_index if progress else 0,
+                    "steps": [s.value for s in MODULE_STEPS],
+                    "quiz_results": quiz_summaries.get(module.id, []),
                 }
             )
 

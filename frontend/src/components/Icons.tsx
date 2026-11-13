@@ -24,6 +24,23 @@ export function LightbulbIcon({ size = 20 }: IconProps) {
   );
 }
 
+export function ClipboardCheckIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} aria-hidden="true">
+      <path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2" />
+      <path d="m9 13 2 2 4-4" />
+    </svg>
+  );
+}
+
+export function BarsIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} aria-hidden="true">
+      <path d="M4 20h4v-6H4zM10 20h4V9h-4zM16 20h4V4h-4z" />
+    </svg>
+  );
+}
+
 export function PauseIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...base} aria-hidden="true">

@@ -106,6 +106,16 @@ class DiagnosticResultOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class QuizSummaryOut(BaseModel):
+    """Questionario ja concluido de um modulo (para a trilha mostrar o selo
+    de desempenho e a barrinha acerto/erro de cada etapa)."""
+
+    quiz_id: int
+    correct_count: int
+    total: int
+    results: list[bool | None] = []
+
+
 class ModuleOut(BaseModel):
     id: int
     slug: str
@@ -121,6 +131,14 @@ class ModuleOut(BaseModel):
     performance: int | None = None
     priority: int
     next_step: str | None = None
+    # Posicao do aluno dentro de MODULE_STEPS (0 = nao comecou; == total = concluido).
+    step_index: int = 0
+    # Etapas do modulo, na ordem ("quiz" | "lesson"); a trilha desenha uma
+    # bolinha por item, entao o front nao precisa conhecer MODULE_STEPS.
+    steps: list[str] = []
+    # Questionarios concluidos nesta passada pelo modulo, em ordem
+    # (o 1o corresponde a 1a etapa "quiz", e assim por diante).
+    quiz_results: list[QuizSummaryOut] = []
 
 
 class SubjectOut(BaseModel):

@@ -82,6 +82,19 @@ export interface ModuleOut {
   performance: number | null;
   priority: number;
   next_step: string | null;
+  /** Posicao do aluno nas etapas do modulo (0 = nao comecou; == steps.length = concluido). */
+  step_index: number;
+  /** Etapas do modulo, em ordem: "quiz" | "lesson". */
+  steps: string[];
+  /** Questionarios ja feitos nesta passada pelo modulo, em ordem. */
+  quiz_results: QuizSummary[];
+}
+
+export interface QuizSummary {
+  quiz_id: number;
+  correct_count: number;
+  total: number;
+  results: (boolean | null)[];
 }
 
 export interface SubjectOut {
