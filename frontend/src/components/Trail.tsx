@@ -156,29 +156,26 @@ export default function Trail({
                 {done}/{total}
                 <small>{status}</small>
               </div>
-              <div className="trail-meta">
-                {module.bncc_codes.map((code) => (
-                  <span className="trail-bncc" key={code}>
-                    {code}
-                  </span>
-                ))}
-                {module.reason && module.status !== "concluido" && (
-                  <span className="trail-reason">{module.reason}</span>
-                )}
-                {module.status === "concluido" && (
-                  <button
-                    type="button"
-                    className="trail-review"
-                    disabled={busy}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onStudyModule(module.id);
-                    }}
-                  >
-                    Revisar do inicio
-                  </button>
-                )}
-              </div>
+              {((module.reason && module.status !== "concluido") || module.status === "concluido") && (
+                <div className="trail-meta">
+                  {module.reason && module.status !== "concluido" && (
+                    <span className="trail-reason">{module.reason}</span>
+                  )}
+                  {module.status === "concluido" && (
+                    <button
+                      type="button"
+                      className="trail-review"
+                      disabled={busy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStudyModule(module.id);
+                      }}
+                    >
+                      Revisar do inicio
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="trail-nodes">
@@ -195,7 +192,7 @@ export default function Trail({
                 return (
                   <div
                     key={key}
-                    className="trail-node-wrap"
+                    className={`trail-node-wrap${state === "current" ? " is-current" : ""}`}
                     style={{ "--x": `${x}px`, zIndex: open === key ? 12 : undefined } as React.CSSProperties}
                     ref={state === "current" ? currentRef : undefined}
                   >

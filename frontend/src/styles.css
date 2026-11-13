@@ -1062,20 +1062,6 @@ select {
   font-size: 0.82rem;
 }
 
-.trail-bncc {
-  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 0.1rem 0.45rem;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.trail-unit.idle .trail-bncc {
-  background: var(--color-bg);
-  color: var(--color-text-muted);
-}
-
 .trail-reason {
   flex-basis: 100%;
   opacity: 0.9;
@@ -1110,6 +1096,11 @@ select {
   position: relative;
   z-index: 3;
   transform: translateX(var(--x, 0px));
+}
+
+/* Espaco para o balao "Comecar" nao cobrir a etapa de cima. */
+.trail-node-wrap.is-current {
+  margin-top: 2.6rem;
 }
 
 .trail-node {
