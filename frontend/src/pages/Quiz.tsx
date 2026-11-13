@@ -41,6 +41,7 @@ export default function Quiz() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [results, setResults] = useState<(boolean | null)[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +51,7 @@ export default function Quiz() {
         ? await api.getQuiz(Number(quizParam))
         : await api.startQuiz(moduleParam ? Number(moduleParam) : null, kind);
       setQuiz(data);
+      setResults(data.results ?? []);
       setIndex(Math.min(data.current_index, Math.max(0, data.questions.length - 1)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel montar o questionario.");
@@ -139,6 +141,11 @@ export default function Quiz() {
     try {
       const res = await api.answerQuiz(quiz!.id, question.id, selected);
       setAnswer(res);
+      setResults((prev) => {
+        const next = [...prev];
+        next[index] = res.correct;
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel enviar sua resposta.");
     } finally {
@@ -180,7 +187,7 @@ export default function Quiz() {
         </div>
       </div>
 
-      <StepperDots total={quiz.questions.length} current={index} />
+      <StepperDots total={quiz.questions.length} current={index} results={results} />
 
       <QuestionCard
         question={question}

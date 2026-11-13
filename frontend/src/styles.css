@@ -251,8 +251,17 @@ a.link-button {
   background: var(--color-border);
 }
 
+/* Respondida, sem resultado conhecido (diagnostico): cor neutra. */
 .stepper-dot.done {
+  background: #94a3b8;
+}
+
+.stepper-dot.correct {
   background: var(--color-success);
+}
+
+.stepper-dot.wrong {
+  background: var(--color-error);
 }
 
 .stepper-dot.current {

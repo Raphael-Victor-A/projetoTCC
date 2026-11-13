@@ -94,7 +94,7 @@ export default function Exercise() {
         <PauseButton message="As respostas que voce ja enviou ficam salvas. Quando quiser continuar, e so abrir a Pratica livre de novo." />
       </div>
 
-      <StepperDots total={5} current={filledDots} />
+      <StepperDots total={5} current={filledDots} results={progress?.window_results} />
 
       <QuestionCard
         question={question}

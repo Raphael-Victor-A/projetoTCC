@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app import quiz_service, study_plan
 from app.database import get_db
-from app.models import Module, Question, Quiz, QuizKind, User
+from app.models import Attempt, Module, Question, Quiz, QuizKind, User
 from app.rate_limit import enforce_gemini_rate_limit
 from app.routers.learning import next_step_payload
 from app.schemas import (
@@ -37,6 +37,10 @@ def _quiz_out(db: Session, quiz: Quiz) -> QuizOut:
 
     questions = quiz_service.quiz_questions(db, quiz)
     module = db.get(Module, quiz.module_id) if quiz.module_id else None
+    answered = {
+        a.question_id: a.correct
+        for a in db.query(Attempt).filter(Attempt.quiz_id == quiz.id).all()
+    }
     return QuizOut(
         id=quiz.id,
         kind=quiz.kind,
@@ -49,6 +53,7 @@ def _quiz_out(db: Session, quiz: Quiz) -> QuizOut:
         correct_count=quiz.correct_count,
         completed=quiz.completed_at is not None,
         questions=[_question_out(q) for q in questions],
+        results=[answered.get(q.id) for q in questions],
     )
 
 

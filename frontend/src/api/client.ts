@@ -145,6 +145,8 @@ export interface QuizOut {
   correct_count: number;
   completed: boolean;
   questions: QuestionOut[];
+  /** Acerto (true) / erro (false) / nao respondida (null), na ordem das questoes. */
+  results: (boolean | null)[];
 }
 
 export interface QuizAnswerResult {
@@ -216,6 +218,8 @@ export interface ProgressOut {
   level: Level;
   window_count: number;
   window_correct: number;
+  /** Acerto/erro de cada exercicio do bloco atual, em ordem. */
+  window_results: boolean[];
   needs_remediation: boolean;
   total_attempts: number;
   total_correct: number;

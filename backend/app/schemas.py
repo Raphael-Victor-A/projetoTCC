@@ -181,6 +181,10 @@ class QuizOut(BaseModel):
     correct_count: int
     completed: bool
     questions: list[QuestionOut]
+    # Resultado de cada questao, na mesma ordem de `questions`:
+    # true = acertou, false = errou, null = ainda nao respondida.
+    # Permite a barra de progresso mostrar acerto/erro (inclusive ao retomar).
+    results: list[bool | None] = []
 
 
 class QuizStartIn(BaseModel):
@@ -327,6 +331,8 @@ class ProgressOut(BaseModel):
     level: Level
     window_count: int
     window_correct: int
+    # Acerto/erro de cada exercicio do bloco atual, em ordem (tamanho = window_count).
+    window_results: list[bool] = []
     needs_remediation: bool
     total_attempts: int
     total_correct: int

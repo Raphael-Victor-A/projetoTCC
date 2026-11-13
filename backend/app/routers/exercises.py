@@ -461,10 +461,31 @@ def get_progress(
     attempts = db.query(Attempt).filter(
         Attempt.user_id == current_user.id, Attempt.is_diagnostic.is_(False)
     ).all()
+
+    # O bloco da janela movel so conta exercicios avulsos (POST
+    # /exercises/submit chama adaptive_engine.record_attempt; questionarios
+    # nao). Entao o bloco atual sao as ultimas `window_count` tentativas
+    # avulsas, em ordem.
+    window_results: list[bool] = []
+    if current_user.window_count > 0:
+        recent = (
+            db.query(Attempt)
+            .filter(
+                Attempt.user_id == current_user.id,
+                Attempt.is_diagnostic.is_(False),
+                Attempt.quiz_id.is_(None),
+            )
+            .order_by(Attempt.id.desc())
+            .limit(current_user.window_count)
+            .all()
+        )
+        window_results = [a.correct for a in reversed(recent)]
+
     return ProgressOut(
         level=current_user.level,
         window_count=current_user.window_count,
         window_correct=current_user.window_correct,
+        window_results=window_results,
         needs_remediation=current_user.needs_remediation,
         total_attempts=len(attempts),
         total_correct=sum(1 for a in attempts if a.correct),

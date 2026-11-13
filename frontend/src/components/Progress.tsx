@@ -76,15 +76,44 @@ export function ProgressRing({
   );
 }
 
-export function StepperDots({ total, current }: { total: number; current: number }) {
+/**
+ * Barra de etapas.
+ *
+ * Com `results`, cada etapa respondida mostra o resultado: verde = acertou,
+ * vermelho = errou. Sem `results` (ex.: diagnostico, onde o aluno nao ve a
+ * correcao), as etapas passadas ficam so marcadas como "respondida", numa cor
+ * neutra que nao sugere acerto.
+ */
+export function StepperDots({
+  total,
+  current,
+  results,
+}: {
+  total: number;
+  current: number;
+  results?: (boolean | null | undefined)[];
+}) {
   return (
     <div className="stepper" aria-label={`Etapa ${current + 1} de ${total}`}>
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={`stepper-dot ${i < current ? "done" : i === current ? "current" : ""}`}
-        />
-      ))}
+      {Array.from({ length: total }).map((_, i) => {
+        const result = results?.[i];
+        let state = "";
+        let label = `Questao ${i + 1}`;
+        if (result === true) {
+          state = "correct";
+          label += ": acertou";
+        } else if (result === false) {
+          state = "wrong";
+          label += ": errou";
+        } else if (i === current) {
+          state = "current";
+          label += ": atual";
+        } else if (i < current) {
+          state = "done";
+          label += ": respondida";
+        }
+        return <div key={i} className={`stepper-dot ${state}`} title={label} aria-label={label} />;
+      })}
     </div>
   );
 }
