@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ModuleOut, NextStep, QuizSummary } from "../api/client";
 import { AlertIcon, BookIcon, CheckIcon, ClipboardCheckIcon, TrophyIcon } from "./Icons";
+import Mascot, { MascotSays, useMascotLine } from "./Mascot";
 
 /**
  * Trilha de estudos em caminho: cada modulo e uma faixa colorida seguida das
@@ -69,6 +70,8 @@ export default function Trail({
   currentRef: React.RefObject<HTMLDivElement>;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const startLine = useMascotLine("start");
+  const lessonLine = useMascotLine("lesson");
   const [open, setOpen] = useState<string | null>(null);
   const trailRef = useRef<HTMLDivElement>(null);
   const [pathD, setPathD] = useState("");
@@ -197,7 +200,10 @@ export default function Trail({
                     ref={state === "current" ? currentRef : undefined}
                   >
                     {state === "current" && (
-                      <span className="trail-start">{kind === "lesson" ? "Ler agora" : "Comecar"}</span>
+                      <div className="trail-perch" aria-hidden="true">
+                        <MascotSays>{kind === "lesson" ? lessonLine : startLine}</MascotSays>
+                        <Mascot mood="zen" size={88} />
+                      </div>
                     )}
                     <button
                       type="button"

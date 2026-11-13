@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { Skeleton } from "../components/Loading";
 import Trail, { trailOrder } from "../components/Trail";
 import type { TrailModule } from "../components/Trail";
+import Mascot from "../components/Mascot";
 import {
   ArrowRightIcon,
   BarsIcon,
@@ -212,21 +213,31 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {plan.weak_topics.length > 0 && (
-            <div className="trail-panel">
-              <h2>Para reforcar</h2>
-              <div className="badges-row">
-                {plan.weak_topics.map((topic) => (
-                  <span className="topic-chip" key={topic}>
-                    {topic}
-                  </span>
-                ))}
-              </div>
-              <button className="secondary" onClick={() => navigate("/tutor")} style={{ marginTop: "1rem" }}>
+          <div className="trail-panel">
+            {plan.weak_topics.length > 0 ? (
+              <>
+                <h2>Para reforcar</h2>
+                <div className="badges-row">
+                  {plan.weak_topics.map((topic) => (
+                    <span className="topic-chip" key={topic}>
+                      {topic}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <h2>Duvidas?</h2>
+            )}
+            <div className="trail-tutor-cta">
+              <button className="secondary" onClick={() => navigate("/tutor")}>
                 <ChatIcon size={16} /> Tirar duvida com o tutor
               </button>
+              <div className="trail-tutor-mascot" aria-hidden="true">
+                <span className="mascot-sign">Manda a braba!</span>
+                <Mascot mood="hint" size={96} />
+              </div>
             </div>
-          )}
+          </div>
 
           <div className="trail-panel">
             <h2>Conquistas</h2>

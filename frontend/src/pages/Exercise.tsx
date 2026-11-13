@@ -6,7 +6,8 @@ import QuestionCard from "../components/QuestionCard";
 import AiFeedback from "../components/AiFeedback";
 import { StepperDots } from "../components/Progress";
 import { LoadingCard } from "../components/Loading";
-import { CheckIcon, HelpCircleIcon, LightbulbIcon, SparkleIcon } from "../components/Icons";
+import { HelpCircleIcon, SparkleIcon } from "../components/Icons";
+import { MascotReaction } from "../components/Mascot";
 import HintSheet from "../components/HintSheet";
 import PauseButton from "../components/PauseButton";
 
@@ -113,10 +114,11 @@ export default function Exercise() {
 
       {result && (
         <div className={result.correct ? "result-box result-correct" : "result-box result-wrong"}>
-          <div className="result-title">
-            {result.correct ? <CheckIcon /> : <LightbulbIcon />}
-            {result.correct ? "Isso mesmo! Muito bem." : "Quase! Vamos pensar juntos."}
-          </div>
+          <MascotReaction
+            key={question.id}
+            correct={result.correct}
+            title={result.correct ? "Isso mesmo! Muito bem." : "Quase! Vamos pensar juntos."}
+          />
 
           {result.feedback_available && result.attempt_id && (
             <AiFeedback attemptId={result.attempt_id} />

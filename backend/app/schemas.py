@@ -231,6 +231,10 @@ class QuizResultOut(BaseModel):
     total: int
     accuracy: int
     next_step: "NextStepOut"
+    # True so na primeira vez que este questionario fecha o modulo (ultima
+    # etapa concluida): e quando o front mostra a comemoracao.
+    module_completed: bool = False
+    module_title: str | None = None
 
 
 # ---------------------------------------------------------------------------

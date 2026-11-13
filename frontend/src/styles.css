@@ -1098,9 +1098,9 @@ select {
   transform: translateX(var(--x, 0px));
 }
 
-/* Espaco para o balao "Comecar" nao cobrir a etapa de cima. */
+/* Espaco para o mascote e o balao dele nao cobrirem a etapa de cima. */
 .trail-node-wrap.is-current {
-  margin-top: 2.6rem;
+  margin-top: 10.5rem;
 }
 
 .trail-node {
@@ -1184,39 +1184,23 @@ select {
 .trail-badge.ok { background: var(--color-success); }
 .trail-badge.low { background: var(--color-hint); }
 
-.trail-start {
+/* Mascote sentado em cima da etapa atual, com o balao de fala acima. */
+.trail-perch {
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 16px);
+  bottom: calc(100% - 4px);
   transform: translateX(-50%);
-  background: var(--color-surface);
-  color: var(--u);
-  border: 2px solid var(--color-border);
-  font-weight: 800;
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 0.35rem 0.8rem;
-  border-radius: 12px;
-  white-space: nowrap;
-  box-shadow: var(--shadow-soft);
-  animation: trail-bob 1.6s ease-in-out infinite;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
   pointer-events: none;
 }
 
-.trail-start::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translateX(-50%);
-  border: 8px solid transparent;
-  border-top-color: var(--color-surface);
-}
-
-@keyframes trail-bob {
-  0%, 100% { transform: translate(-50%, 0); }
-  50% { transform: translate(-50%, -5px); }
+.trail-perch .mascot-says {
+  width: max-content;
+  max-width: 220px;
+  text-align: center;
 }
 
 /* Balao da etapa: centralizado na trilha (nao na bolinha) para nunca passar
@@ -1481,9 +1465,217 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .trail-node.current::after,
-  .trail-start {
+  .trail-node.current::after {
     animation: none;
+  }
+}
+
+/* ==========================================================================
+   Mascote (Sixseven)
+   ========================================================================== */
+
+.mascot {
+  position: relative;
+  display: block;
+  line-height: 0;
+  flex: none;
+}
+
+.mascot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 8px 12px rgba(30, 42, 59, 0.18));
+  user-select: none;
+}
+
+/* Avatar redondo so do rosto. */
+.mascot.crop-head {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #e3ecff, #b9cffc);
+  border: 2px solid var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.mascot.crop-head img {
+  width: 175%;
+  max-width: none;
+  margin: -1% 0 0 -49%;
+  filter: none;
+}
+
+.mascot-trophy {
+  position: absolute;
+  width: 30%;
+  right: -6%;
+  top: 0;
+  animation: mascot-trophy 1.1s ease-in-out infinite;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes mascot-trophy {
+  0%, 100% { transform: translateY(0) rotate(8deg); }
+  50% { transform: translateY(-8px) rotate(-6deg); }
+}
+
+.mascot[data-mood="zen"] img { animation: mascot-breathe 4s ease-in-out infinite; }
+@keyframes mascot-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015, 0.99); }
+}
+
+.mascot[data-mood="happy"] img { animation: mascot-pop 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes mascot-pop {
+  0% { transform: scale(0.88) translateY(10px); }
+  60% { transform: scale(1.05) translateY(-6px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.mascot[data-mood="oops"] img { animation: mascot-wobble 0.8s ease-in-out both; }
+@keyframes mascot-wobble {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-4deg); }
+  45% { transform: rotate(3deg); }
+  70% { transform: rotate(-2deg); }
+}
+
+.mascot[data-mood="hint"] img { animation: mascot-tilt 3s ease-in-out infinite; }
+@keyframes mascot-tilt {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(-3deg); }
+}
+
+.mascot[data-mood="party"] img { animation: mascot-dance 1.1s ease-in-out infinite; }
+@keyframes mascot-dance {
+  0% { transform: rotate(-4deg) translateY(0); }
+  25% { transform: rotate(0) translateY(-10px); }
+  50% { transform: rotate(4deg) translateY(0); }
+  75% { transform: rotate(0) translateY(-10px); }
+  100% { transform: rotate(-4deg) translateY(0); }
+}
+
+.mascot-says {
+  position: relative;
+  display: inline-block;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 2px solid var(--color-primary);
+  border-radius: 14px;
+  padding: 0.3rem 0.75rem;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.25;
+  box-shadow: var(--shadow-soft);
+}
+
+.mascot-says.small {
+  font-size: 0.95rem;
+  border-color: transparent;
+  margin-top: 0.25rem;
+}
+
+/* Reacao na correcao: avatar + titulo + fala. */
+.mascot-reaction {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mascot-reaction .result-title {
+  margin: 0;
+}
+
+.mascot-reaction-text {
+  min-width: 0;
+}
+
+/* Painel do tutor no dashboard, com a plaquinha. */
+.trail-tutor-cta {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.trail-tutor-cta button {
+  margin-bottom: 0.5rem;
+}
+
+.trail-tutor-mascot {
+  position: relative;
+  padding-top: 2.4rem;
+  margin-right: -0.4rem;
+}
+
+.mascot-sign {
+  position: absolute;
+  top: 0.2rem;
+  right: 2.2rem;
+  z-index: 2;
+  transform: rotate(-7deg);
+  background: #fffdf5;
+  color: #1e2a3b;
+  border: 3px solid #8a5a2b;
+  border-radius: 6px;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* Fim de questionario / comemoracao de modulo. */
+.quiz-finish {
+  position: relative;
+  overflow: hidden;
+}
+
+.quiz-finish-mascot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.quiz-finish-module {
+  margin: -0.25rem 0 0.5rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 13px;
+  border-radius: 2px;
+  animation: confetti-fall 3s linear infinite;
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(520px) rotate(540deg); opacity: 0.15; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot img,
+  .mascot-trophy,
+  .confetti i {
+    animation: none !important;
   }
 }
 

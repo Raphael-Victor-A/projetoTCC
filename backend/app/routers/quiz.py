@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app import quiz_service, study_plan
 from app.database import get_db
-from app.models import Attempt, Module, Question, Quiz, QuizKind, User
+from app.models import Attempt, Module, ModuleStatus, Question, Quiz, QuizKind, User
 from app.rate_limit import enforce_gemini_rate_limit
 from app.routers.learning import next_step_payload
 from app.schemas import (
@@ -199,13 +199,14 @@ def finish_quiz(
     quiz_service.complete_quiz(db, quiz)
 
     progress = None
-    if quiz.module_id is not None:
-        progress = study_plan._get_or_create_progress(  # noqa: SLF001 - helper interno do modulo
-            db, current_user, db.get(Module, quiz.module_id)
-        )
+    module_completed = False
+    module = db.get(Module, quiz.module_id) if quiz.module_id is not None else None
+    if module is not None:
+        progress = study_plan._get_or_create_progress(db, current_user, module)  # noqa: SLF001
         # So avanca a etapa uma vez, mesmo que o cliente chame /finish de novo.
         if first_time and study_plan.next_step(progress) is not None:
             study_plan.advance_step(db, progress)
+            module_completed = progress.status == ModuleStatus.CONCLUIDO
 
     db.commit()
 
@@ -216,6 +217,8 @@ def finish_quiz(
         total=total,
         accuracy=accuracy,
         next_step=next_step_payload(db, current_user),
+        module_completed=module_completed,
+        module_title=module.title if module is not None else None,
     )
 
 

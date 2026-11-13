@@ -180,6 +180,9 @@ export interface QuizResult {
   total: number;
   accuracy: number;
   next_step: NextStep;
+  /** True quando este questionario acabou de fechar o modulo (hora da comemoracao). */
+  module_completed: boolean;
+  module_title: string | null;
 }
 
 export interface LessonSection {

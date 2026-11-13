@@ -6,16 +6,29 @@ import QuestionCard from "../components/QuestionCard";
 import AiFeedback from "../components/AiFeedback";
 import { ProgressBar, StepperDots } from "../components/Progress";
 import { LoadingCard } from "../components/Loading";
-import {
-  ArrowRightIcon,
-  BookIcon,
-  CheckIcon,
-  HelpCircleIcon,
-  LightbulbIcon,
-  TrophyIcon,
-} from "../components/Icons";
+import { ArrowRightIcon, BookIcon, HelpCircleIcon } from "../components/Icons";
 import HintSheet from "../components/HintSheet";
 import PauseButton from "../components/PauseButton";
+import Mascot, { MascotLine, MascotReaction } from "../components/Mascot";
+
+const CONFETTI_COLORS = ["#2f6fed", "#f59e0b", "#16a34a", "#db2777", "#7c4ddb", "#5f9a3e"];
+
+/** Confete da comemoracao de modulo (so CSS; respeita reduced-motion). */
+function Confetti() {
+  const pieces = Array.from({ length: 28 }, (_, i) => ({
+    left: `${(i * 37) % 100}%`,
+    background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    animationDelay: `${(i % 9) * 0.35}s`,
+    animationDuration: `${2.6 + (i % 5) * 0.35}s`,
+  }));
+  return (
+    <div className="confetti" aria-hidden="true">
+      {pieces.map((style, i) => (
+        <i key={i} style={style} />
+      ))}
+    </div>
+  );
+}
 
 /**
  * Questionario completo.
@@ -96,12 +109,20 @@ export default function Quiz() {
       else navigate("/dashboard");
     };
 
+    // Fechou o modulo: comemoracao completa (trofeu, dancinha, confete).
+    // Senao, o mascote so reage ao aproveitamento.
+    const party = finalResult.module_completed;
+    const mood = party ? "party" : finalResult.accuracy >= 70 ? "happy" : "zen";
+
     return (
-      <div className="card text-center">
-        <div className="hero-icon success">
-          <TrophyIcon size={30} />
+      <div className={`card text-center quiz-finish${party ? " party" : ""}`}>
+        {party && <Confetti />}
+        <div className="quiz-finish-mascot">
+          <MascotLine kind={mood} />
+          <Mascot mood={mood} size={party ? 190 : 150} />
         </div>
-        <h1>Questionario concluido</h1>
+        <h1>{party ? "Modulo zerado!" : "Questionario concluido"}</h1>
+        {party && finalResult.module_title && <p className="quiz-finish-module">{finalResult.module_title}</p>}
         <p className="subtitle">
           Voce acertou {finalResult.correct_count} de {finalResult.total} ({finalResult.accuracy}%).
         </p>
@@ -206,10 +227,11 @@ export default function Quiz() {
 
       {answer && (
         <div className={answer.correct ? "result-box result-correct" : "result-box result-wrong"}>
-          <div className="result-title">
-            {answer.correct ? <CheckIcon /> : <LightbulbIcon />}
-            {answer.correct ? "Isso mesmo! Muito bem." : "Quase! Vamos pensar juntos."}
-          </div>
+          <MascotReaction
+            key={question.id}
+            correct={answer.correct}
+            title={answer.correct ? "Isso mesmo! Muito bem." : "Quase! Vamos pensar juntos."}
+          />
           {answer.correct && answer.explanation && (
             <p className="result-explanation">{answer.explanation}</p>
           )}
