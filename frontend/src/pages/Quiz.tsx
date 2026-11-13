@@ -57,8 +57,17 @@ export default function Quiz() {
   const [results, setResults] = useState<(boolean | null)[]>([]);
 
   const load = useCallback(async () => {
+    // A rota /quiz nao e remontada quando so muda o ?module= (ex.: "Proximo
+    // questionario" depois de fechar um modulo). Sem limpar o estado aqui, a
+    // tela de resultado do questionario anterior ficava presa por cima.
     setLoading(true);
     setError(null);
+    setFinalResult(null);
+    setAnswer(null);
+    setSelected(null);
+    setShowHelp(false);
+    setResults([]);
+    setIndex(0);
     try {
       const data = quizParam
         ? await api.getQuiz(Number(quizParam))
@@ -105,8 +114,11 @@ export default function Quiz() {
     const step = finalResult.next_step;
     const goNext = () => {
       if (step.kind === "lesson" && step.module_id) navigate(`/lesson?module=${step.module_id}`);
-      else if (step.kind === "quiz" && step.module_id) navigate(`/quiz?module=${step.module_id}`);
-      else navigate("/dashboard");
+      else if (step.kind === "quiz" && step.module_id) {
+        // Mesmo endereco atual: navegar nao dispararia nada, entao recarrega.
+        if (String(step.module_id) === moduleParam && !quizParam) load();
+        else navigate(`/quiz?module=${step.module_id}`);
+      } else navigate("/dashboard");
     };
 
     // Fechou o modulo: comemoracao completa (trofeu, dancinha, confete).
