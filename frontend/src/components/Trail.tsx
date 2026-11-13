@@ -59,6 +59,7 @@ export default function Trail({
   busy,
   onContinue,
   onStudyModule,
+  onRetakeQuiz,
   currentRef,
 }: {
   modules: TrailModule[];
@@ -67,6 +68,7 @@ export default function Trail({
   busy: boolean;
   onContinue: () => void;
   onStudyModule: (moduleId: number) => void;
+  onRetakeQuiz: (quizId: number) => void;
   currentRef: React.RefObject<HTMLDivElement>;
 }) {
   const [showAll, setShowAll] = useState(false);
@@ -242,6 +244,10 @@ export default function Trail({
                           inCurrentModule={isCurrent}
                           moduleStarted={done > 0}
                           busy={busy}
+                          onRetake={() => {
+                            setOpen(null);
+                            if (quiz) onRetakeQuiz(quiz.quiz_id);
+                          }}
                           onStart={() => {
                             setOpen(null);
                             if (isCurrent && nextStep?.module_id === module.id) onContinue();
@@ -280,6 +286,7 @@ function StepPopBody({
   busy,
   onStart,
   onGoCurrent,
+  onRetake,
 }: {
   state: StepState;
   kind: string;
@@ -289,20 +296,36 @@ function StepPopBody({
   busy: boolean;
   onStart: () => void;
   onGoCurrent: () => void;
+  onRetake: () => void;
 }) {
   if (state === "done") {
     if (kind === "lesson") return <p className="trail-pop-text">Voce ja leu esta mini aula.</p>;
     if (!quiz) return <p className="trail-pop-text">Questionario concluido.</p>;
+    const perfect = quiz.total > 0 && quiz.correct_count === quiz.total;
     return (
       <>
         <p className="trail-pop-text">
-          Voce acertou {quiz.correct_count} de {quiz.total}.
+          {quiz.attempts > 1 ? "Seu melhor resultado: " : "Voce acertou "}
+          {quiz.correct_count} de {quiz.total}
+          {quiz.attempts > 1 ? ` (${quiz.attempts} tentativas).` : "."}
         </p>
         <div className="trail-score">
           {quiz.results.map((r, i) => (
             <span key={i} className={r === true ? "ok" : r === false ? "bad" : ""} />
           ))}
         </div>
+        <button
+          type="button"
+          className={`trail-pop-btn${perfect ? " ghost" : ""}`}
+          style={{ marginTop: "0.85rem" }}
+          disabled={busy}
+          onClick={onRetake}
+        >
+          Refazer questionario
+        </button>
+        <p className="trail-pop-note">
+          Sempre que possivel com questoes novas do mesmo conteudo. Nao muda sua posicao na trilha.
+        </p>
       </>
     );
   }

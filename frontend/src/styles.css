@@ -1262,6 +1262,13 @@ select {
   background: var(--color-border);
 }
 
+.trail-pop-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 .trail-score span.ok { background: var(--color-success); }
 .trail-score span.bad { background: var(--color-error); }
 

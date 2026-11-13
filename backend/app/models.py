@@ -248,6 +248,11 @@ class Quiz(Base):
     current_index: Mapped[int] = mapped_column(Integer, default=0)
     correct_count: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Preenchido quando este questionario e uma nova tentativa ("Refazer") de
+    # um questionario ja concluido da trilha. Tentativas nao avancam a trilha;
+    # a trilha mostra o melhor resultado entre o original e as tentativas.
+    retake_of: Mapped[int | None] = mapped_column(ForeignKey("quizzes.id"), nullable=True, index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

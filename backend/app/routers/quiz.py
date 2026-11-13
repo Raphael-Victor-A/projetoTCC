@@ -54,6 +54,7 @@ def _quiz_out(db: Session, quiz: Quiz) -> QuizOut:
         completed=quiz.completed_at is not None,
         questions=[_question_out(q) for q in questions],
         results=[answered.get(q.id) for q in questions],
+        retake_of=quiz.retake_of,
     )
 
 
@@ -108,6 +109,57 @@ async def start_quiz(
         logger.error("Falha ao montar questionario: %s", exc)
         raise HTTPException(status_code=503, detail="Nao foi possivel montar o questionario agora")
 
+    db.commit()
+    db.refresh(quiz)
+    return _quiz_out(db, quiz)
+
+
+@router.post("/{quiz_id}/retake", response_model=QuizOut, status_code=status.HTTP_201_CREATED)
+async def retake_quiz(
+    quiz_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Nova tentativa ("Refazer") de um questionario ja concluido da trilha.
+
+    Monta um questionario novo do mesmo modulo e tamanho, com questoes que o
+    aluno ainda nao viu (refazer com as mesmas questoes so mediria memoria).
+    A tentativa nao avanca a trilha; a trilha passa a mostrar o melhor
+    resultado. Se ja houver uma tentativa aberta, ela e retomada.
+    """
+
+    original = _get_owned_quiz(db, quiz_id, current_user)
+    if original.retake_of is not None:
+        original = _get_owned_quiz(db, original.retake_of, current_user)
+    if original.completed_at is None:
+        raise HTTPException(status_code=409, detail="Termine este questionario antes de refaze-lo")
+    if original.module_id is None:
+        raise HTTPException(status_code=400, detail="So questionarios da trilha podem ser refeitos")
+
+    open_retake = (
+        db.query(Quiz)
+        .filter(Quiz.retake_of == original.id, Quiz.completed_at.is_(None))
+        .order_by(Quiz.created_at.desc())
+        .first()
+    )
+    if open_retake is not None:
+        return _quiz_out(db, open_retake)
+
+    enforce_gemini_rate_limit(current_user.id)
+    try:
+        quiz = await quiz_service.build_quiz(
+            db,
+            current_user,
+            module=db.get(Module, original.module_id),
+            kind=original.kind,
+            size=len(original.question_ids or []) or None,
+            focus_errors=study_plan.weak_topics(db, current_user),
+        )
+    except RuntimeError as exc:
+        logger.error("Falha ao montar a nova tentativa: %s", exc)
+        raise HTTPException(status_code=503, detail="Nao foi possivel montar o questionario agora")
+
+    quiz.retake_of = original.id
     db.commit()
     db.refresh(quiz)
     return _quiz_out(db, quiz)
@@ -201,7 +253,8 @@ def finish_quiz(
     progress = None
     module_completed = False
     module = db.get(Module, quiz.module_id) if quiz.module_id is not None else None
-    if module is not None:
+    # Tentativa de "Refazer" nao mexe na trilha: so a original conta etapa.
+    if module is not None and quiz.retake_of is None:
         progress = study_plan._get_or_create_progress(db, current_user, module)  # noqa: SLF001
         # So avanca a etapa uma vez, mesmo que o cliente chame /finish de novo.
         if first_time and study_plan.next_step(progress) is not None:

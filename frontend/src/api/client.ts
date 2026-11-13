@@ -91,10 +91,13 @@ export interface ModuleOut {
 }
 
 export interface QuizSummary {
+  /** Id do questionario original da trilha (o que "Refazer" recebe). */
   quiz_id: number;
+  /** Melhor resultado entre o original e as tentativas. */
   correct_count: number;
   total: number;
   results: (boolean | null)[];
+  attempts: number;
 }
 
 export interface SubjectOut {
@@ -160,6 +163,8 @@ export interface QuizOut {
   questions: QuestionOut[];
   /** Acerto (true) / erro (false) / nao respondida (null), na ordem das questoes. */
   results: (boolean | null)[];
+  /** Preenchido quando e uma nova tentativa ("Refazer") de outro questionario. */
+  retake_of: number | null;
 }
 
 export interface QuizAnswerResult {
@@ -442,6 +447,10 @@ export const startQuiz = (moduleId: number | null, kind: QuizKind = "reforco", s
   });
 
 export const getQuiz = (quizId: number) => request<QuizOut>(`/quiz/${quizId}`);
+
+/** Nova tentativa de um questionario ja feito (nao avanca a trilha). */
+export const retakeQuiz = (quizId: number) =>
+  request<QuizOut>(`/quiz/${quizId}/retake`, { method: "POST" });
 
 export const answerQuiz = (quizId: number, question_id: number, alternative_id: string) =>
   request<QuizAnswerResult>(`/quiz/${quizId}/answer`, {

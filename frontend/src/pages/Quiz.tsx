@@ -209,7 +209,9 @@ export default function Quiz() {
     <div className="card">
       <div className="quiz-header">
         <div>
-          <p className="quiz-kind">{quiz.kind === "reforco" ? "Reforco" : "Pratica"}</p>
+          <p className="quiz-kind">
+            {quiz.retake_of ? "Refazendo questionario" : quiz.kind === "reforco" ? "Reforco" : "Pratica"}
+          </p>
           {quiz.module_title && <p className="quiz-module">{quiz.module_title}</p>}
         </div>
         <div className="quiz-header-actions">

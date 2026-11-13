@@ -1,11 +1,35 @@
-from pydantic import BaseModel, EmailStr, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 
 from app.models import FeedbackGroup, Level, ModuleStatus, QuizKind
 
+# Login aceita nome de usuario OU e-mail. O valor fica na coluna `email`
+# (nome mantido para nao exigir migracao); o campo da API tambem continua
+# se chamando "email" para nao quebrar clientes e testes existentes.
+LOGIN_PATTERN = re.compile(r"^[a-z0-9._+\-@]{3,120}$")
+
+
+def normalize_login(value: str) -> str:
+    """Usuario/e-mail sem espacos nas pontas e em minusculas."""
+
+    return (value or "").strip().lower()
+
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    email: str = Field(description="Nome de usuario ou e-mail")
     password: str = Field(min_length=8)
+
+    @field_validator("email")
+    @classmethod
+    def _valid_login(cls, value: str) -> str:
+        value = normalize_login(value)
+        if not LOGIN_PATTERN.match(value):
+            raise ValueError(
+                "Use de 3 a 120 caracteres: letras sem acento, numeros, ponto, "
+                "hifen, sublinhado ou um e-mail."
+            )
+        return value
 
 
 class Token(BaseModel):
@@ -15,7 +39,7 @@ class Token(BaseModel):
 
 class UserOut(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     group: FeedbackGroup | None
     level: Level
     diagnostic_completed: bool
@@ -110,10 +134,13 @@ class QuizSummaryOut(BaseModel):
     """Questionario ja concluido de um modulo (para a trilha mostrar o selo
     de desempenho e a barrinha acerto/erro de cada etapa)."""
 
+    # Id do questionario ORIGINAL da trilha (e o que "Refazer" recebe).
     quiz_id: int
+    # Melhor resultado entre o original e as tentativas de "Refazer".
     correct_count: int
     total: int
     results: list[bool | None] = []
+    attempts: int = 1
 
 
 class ModuleOut(BaseModel):
@@ -203,6 +230,8 @@ class QuizOut(BaseModel):
     # true = acertou, false = errou, null = ainda nao respondida.
     # Permite a barra de progresso mostrar acerto/erro (inclusive ao retomar).
     results: list[bool | None] = []
+    # Quando e uma nova tentativa ("Refazer"), o id do questionario original.
+    retake_of: int | None = None
 
 
 class QuizStartIn(BaseModel):
@@ -385,7 +414,7 @@ class AdminStatsOut(BaseModel):
 
 class StudentOut(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     group: FeedbackGroup
     level: Level
     diagnostic_completed: bool

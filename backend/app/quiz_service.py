@@ -276,6 +276,7 @@ def find_open_quiz(db: Session, user: User, module: Module | None, kind: QuizKin
         Quiz.user_id == user.id,
         Quiz.kind == kind,
         Quiz.completed_at.is_(None),
+        Quiz.retake_of.is_(None),  # tentativas de "Refazer" tem o fluxo proprio
     )
     if module is not None:
         query = query.filter(Quiz.module_id == module.id)

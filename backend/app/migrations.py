@@ -31,6 +31,7 @@ _ADDED_COLUMNS: list[tuple[str, str, str, str | None]] = [
     ("attempts", "feedback_text", "TEXT", None),
     ("lesson_views", "reexplain_count", "INTEGER", "UPDATE lesson_views SET reexplain_count = 0 WHERE reexplain_count IS NULL"),
     ("lesson_views", "reexplain_text", "TEXT", None),
+    ("quizzes", "retake_of", "INTEGER", None),
 ]
 
 

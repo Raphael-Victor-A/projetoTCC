@@ -27,11 +27,16 @@ export default function Login() {
       if (me.is_admin) navigate("/admin");
       else if (!me.diagnostic_completed) navigate("/diagnostic");
       else navigate("/exercise");
-    } catch {
+    } catch (err) {
+      const status = (err as { status?: number }).status;
       setError(
         mode === "login"
-          ? "Nao foi possivel entrar. Confira seu email e senha e tente de novo."
-          : "Nao foi possivel criar sua conta. Esse email ja pode estar em uso."
+          ? "Nao foi possivel entrar. Confira seu usuario (ou e-mail) e sua senha."
+          : status === 400
+            ? "Esse usuario ja esta em uso. Escolha outro."
+            : status === 422
+              ? "Confira os dados: o usuario precisa ter pelo menos 3 caracteres (letras sem acento, numeros, ponto, hifen ou um e-mail) e a senha pelo menos 8."
+              : "Nao foi possivel criar sua conta agora. Tente de novo."
       );
     } finally {
       setSubmitting(false);
@@ -83,13 +88,16 @@ export default function Login() {
 
       <form onSubmit={handleSubmit} noValidate>
         <label htmlFor="email">
-          Seu email
+          {mode === "login" ? "Usuario ou e-mail" : "Escolha um nome de usuario (ou use seu e-mail)"}
           <input
             id="email"
-            type="email"
+            type="text"
             required
-            autoComplete="email"
-            placeholder="nome@exemplo.com"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="ex.: joao.silva ou nome@exemplo.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />

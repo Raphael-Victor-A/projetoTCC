@@ -110,6 +110,18 @@ export default function Dashboard() {
     }
   }
 
+  async function retakeQuiz(quizId: number) {
+    setBusy(true);
+    try {
+      const quiz = await api.retakeQuiz(quizId);
+      navigate(`/quiz?id=${quiz.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel refazer o questionario.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function scrollToCurrent() {
     const node = currentRef.current;
     if (!node) return;
@@ -178,6 +190,7 @@ export default function Dashboard() {
           busy={busy}
           onContinue={() => (nextStep ? navigateToStep(nextStep) : undefined)}
           onStudyModule={studyModule}
+          onRetakeQuiz={retakeQuiz}
           currentRef={currentRef}
         />
 

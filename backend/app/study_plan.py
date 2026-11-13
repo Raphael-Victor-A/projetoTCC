@@ -440,6 +440,7 @@ def _module_quiz_summaries(
             Quiz.user_id == user.id,
             Quiz.module_id.in_(list(quizzes_done)),
             Quiz.completed_at.isnot(None),
+            Quiz.retake_of.is_(None),  # so os questionarios que contam etapa
         )
         .order_by(Quiz.completed_at.asc(), Quiz.id.asc())
         .all()
@@ -452,7 +453,28 @@ def _module_quiz_summaries(
         for module_id, count in quizzes_done.items()
     }
 
-    quiz_ids = [q.id for quizzes in selected.values() for q in quizzes]
+    # Tentativas concluidas de "Refazer" de cada questionario selecionado.
+    original_ids = [q.id for quizzes in selected.values() for q in quizzes]
+    retakes: dict[int, list[Quiz]] = defaultdict(list)
+    if original_ids:
+        for r in (
+            db.query(Quiz)
+            .filter(Quiz.retake_of.in_(original_ids), Quiz.completed_at.isnot(None))
+            .all()
+        ):
+            retakes[r.retake_of].append(r)
+
+    def score(q: Quiz) -> float:
+        total = len(q.question_ids or [])
+        return q.correct_count / total if total else 0.0
+
+    best = {
+        q.id: max([q, *retakes.get(q.id, [])], key=score)
+        for quizzes in selected.values()
+        for q in quizzes
+    }
+
+    quiz_ids = [b.id for b in best.values()]
     answers: dict[tuple[int, int], bool] = {
         (a.quiz_id, a.question_id): a.correct
         for a in db.query(Attempt).filter(Attempt.quiz_id.in_(quiz_ids)).all()
@@ -462,9 +484,12 @@ def _module_quiz_summaries(
         module_id: [
             {
                 "quiz_id": q.id,
-                "correct_count": q.correct_count,
-                "total": len(q.question_ids or []),
-                "results": [answers.get((q.id, qid)) for qid in (q.question_ids or [])],
+                "correct_count": best[q.id].correct_count,
+                "total": len(best[q.id].question_ids or []),
+                "results": [
+                    answers.get((best[q.id].id, qid)) for qid in (best[q.id].question_ids or [])
+                ],
+                "attempts": 1 + len(retakes.get(q.id, [])),
             }
             for q in quizzes
         ]
